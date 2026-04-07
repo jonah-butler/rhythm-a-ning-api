@@ -1,0 +1,34 @@
+services:
+  api:
+    env_file:
+      - .env
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"   # bind only to localhost — nginx proxies to this
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      APP_ENV: prod
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+networks:
+  app-network:
+    driver: bridge
+volumes:
+  postgres_data:
