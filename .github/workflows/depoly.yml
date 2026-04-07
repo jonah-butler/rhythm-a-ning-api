@@ -1,0 +1,30 @@
+name: Deploy to DigitalOcean
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.DO_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy files to Droplet
+        run: |
+          rsync -avz --exclude '.git' --exclude '.github' --exclude '.env.local' \
+            -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5" \
+            ./ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/opt/rhythmapi/
+
+      - name: Build and Deploy
+        run: |
+          ssh -i ~/.ssh/id_rsa -o ServerAliveInterval=60 -o ServerAliveCountMax=5 ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} << 'EOF'
+            cd /opt/rhythmapi
+            docker compose up -d --build
+          EOF
