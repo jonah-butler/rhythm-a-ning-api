@@ -9,22 +9,31 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.25'
+
+      - name: Build Go binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main .
+
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          printf '%s' "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.DO_HOST }} >> ~/.ssh/known_hosts
 
       - name: Copy files to Droplet
         run: |
-          rsync -avz --exclude '.git' --exclude '.github' --exclude '.env.local' \
+          rsync -avz --exclude '.git' --exclude '.github' --exclude '.env.local' --exclude '.env.prod' \
             -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5" \
             ./ ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}:/opt/rhythmapi/
 
-      - name: Build and Deploy
+      - name: Deploy
         run: |
           ssh -i ~/.ssh/id_rsa -o ServerAliveInterval=60 -o ServerAliveCountMax=5 ${{ secrets.DO_USER }}@${{ secrets.DO_HOST }} << 'EOF'
             cd /opt/rhythmapi
-            docker compose up -d --build
+            docker compose up -d
           EOF
