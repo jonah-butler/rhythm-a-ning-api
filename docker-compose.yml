@@ -1,7 +1,7 @@
 services:
   api:
     env_file:
-      - .prod.env
+      - prod.env
     build: .
     ports:
       - "127.0.0.1:8080:8080"   # bind only to localhost — nginx proxies to this
