@@ -1,6 +1,6 @@
 WITH inserted AS (
-  INSERT INTO users (username, email, password)
-  VALUES ($1, $2, $3)
+  INSERT INTO users (username, email, password, permission_id)
+  VALUES ($1, $2, $3, 1)
   ON CONFLICT DO NOTHING
   RETURNING user_id, email
 )
