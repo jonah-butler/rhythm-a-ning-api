@@ -94,25 +94,25 @@ CREATE TABLE IF NOT EXISTS users (
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE users
-	ADD COLUMN IF NOT EXISTS permission_id INT REFERENCES permissions(permission_id);
-
 DROP INDEX IF EXISTS user_refresh_tokens_user_id_idx; -- double check
 DROP INDEX IF EXISTS user_refresh_tokens_expires_at_idx; -- double check
 DROP TABLE IF EXISTS user_refresh_tokens;
 
 CREATE TABLE IF NOT EXISTS permissions (
-	permission_id SERIAL PRIMARY KEY
+	permission_id SERIAL PRIMARY KEY,
 	name TEXT NOT NULL UNIQUE
-)
+);
 
-INSERT INTO user_permissions (name)
+INSERT INTO permissions (name)
 VALUES
 	('standard'),
 	('subscriber'),
 	('god')
 ON CONFLICT (name)
 DO NOTHING;
+
+ALTER TABLE users
+	ADD COLUMN IF NOT EXISTS permission_id INT REFERENCES permissions(permission_id);
 
 
 -- =============================
