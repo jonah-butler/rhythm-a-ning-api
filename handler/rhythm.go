@@ -4,19 +4,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"rhythmapi/repository"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
-
-type RhythmHandler struct {
-	repo repository.IRhythmRepository
-}
-
-func NewRhythmHandler(repo repository.IRhythmRepository) *RhythmHandler {
-	return &RhythmHandler{repo: repo}
-}
 
 func (r *RhythmHandler) GetRhythmById(c *gin.Context) {
 	id := c.Param("id")

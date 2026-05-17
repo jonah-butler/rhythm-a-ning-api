@@ -18,7 +18,7 @@ import (
 func main() {
 	env := os.Getenv("APP_ENV")
 	var envFile string
-	if env == "prod" {
+	if env == "production" {
 		envFile = "prod.env"
 	} else {
 		envFile = "local.env"
