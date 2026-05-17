@@ -7,12 +7,14 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
 )
 
 var ErrDaemonAddrNotFound = errors.New("failed to lookup daemon address")
 var ErrRegionNotFound = errors.New("failed to lookup aws region")
+var ErrCredentialsNotFound = errors.New("aws credentials not found")
 
 func SendEmail(input *sesv2.SendEmailInput) error {
 	region := os.Getenv("AWS_REGION")
@@ -20,8 +22,21 @@ func SendEmail(input *sesv2.SendEmailInput) error {
 		return ErrRegionNotFound
 	}
 
+	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
+	secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	if accessKey == "" || secretKey == "" {
+		return ErrCredentialsNotFound
+	}
+
 	ctx := context.TODO()
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			accessKey,
+			secretKey,
+			"",
+		)),
+	)
 	if err != nil {
 		return err
 	}
