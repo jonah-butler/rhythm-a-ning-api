@@ -1,3 +1,9 @@
+-- ----------------------
+-- TABLE CREATION      
+-- ----------------------                    
+-- ++++++++++++++++++++++                     
+-- ++++++++++++++++++++++                      
+
 -- ================================
 -- lookup table for subdivisions  |
 -- ================================
@@ -5,24 +11,6 @@ CREATE TABLE IF NOT EXISTS subdivision_types (
 	subdivision_id SERIAL PRIMARY KEY,
 	name           VARCHAR(50) NOT NULL UNIQUE -- 'base', 'duplet', 'triplet', etc
 );
-
--- ===============================================================
--- populate subdivision lookup table with supported subdivisions |
--- ===============================================================
-INSERT INTO subdivision_types (name)
-VALUES
-	('base'),
-	('duplet'),
-	('triplet'),
-	('quadruplet'),
-	('quintuplet'),
-	('sextuplet'),
-	('septuplet'),
-	('octuplet'),
-	('nonuplet'),
-	('decuplet')
-ON CONFLICT (name)
-DO NOTHING;
 
 -- =======================
 -- primary rhythms table |
@@ -70,17 +58,9 @@ CREATE TABLE IF NOT EXISTS workflow_rhythms (
 -- lookup table for levels        |
 -- ================================
 CREATE TABLE IF NOT EXISTS levels (
-	level_id SERIAL PRIMARY KEY,
+	level_id       SERIAL PRIMARY KEY,
 	name           VARCHAR(50) NOT NULL UNIQUE -- 'beginner', 'intermediate', 'advanced'
 );
-
-INSERT INTO levels (name)
-VALUES
-	('beginner'),
-	('intermediate'),
-	('advanced')
-ON CONFLICT (name)
-DO NOTHING;
 
 -- ===========================
 -- users table               |
@@ -94,25 +74,10 @@ CREATE TABLE IF NOT EXISTS users (
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-DROP INDEX IF EXISTS user_refresh_tokens_user_id_idx; -- double check
-DROP INDEX IF EXISTS user_refresh_tokens_expires_at_idx; -- double check
-DROP TABLE IF EXISTS user_refresh_tokens;
-
 CREATE TABLE IF NOT EXISTS permissions (
 	permission_id SERIAL PRIMARY KEY,
-	name TEXT NOT NULL UNIQUE
+	name          TEXT NOT NULL UNIQUE
 );
-
-INSERT INTO permissions (name)
-VALUES
-	('standard'),
-	('subscriber'),
-	('god')
-ON CONFLICT (name)
-DO NOTHING;
-
-ALTER TABLE users
-	ADD COLUMN IF NOT EXISTS permission_id INT REFERENCES permissions(permission_id);
 
 
 -- =============================
@@ -120,16 +85,8 @@ ALTER TABLE users
 -- =============================
 CREATE TABLE IF NOT EXISTS user_token_types (
 	token_type_id SERIAL PRIMARY KEY,
-	name VARCHAR(100) NOT NULL UNIQUE
+	name          VARCHAR(100) NOT NULL UNIQUE
 );
-
-INSERT INTO user_token_types (name)
-VALUES
-	('account verification'),
-	('refresh token'),
-	('password reset')
-ON CONFLICT (name)
-DO NOTHING;
 
 -- =============================
 -- user tokens                 |
@@ -143,19 +100,112 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 		expires_at    TIMESTAMPTZ NOT NULL
 );
 
+-- ===============================
+-- tags for labeling workflows   |
+-- ===============================
+CREATE TABLE IF NOT EXISTS tags (
+	tag_id      SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL UNIQUE,
+	description TEXT
+);
+
+-- ===================================
+-- associating workflows with tags  |
+-- ==================================
+CREATE TABLE IF NOT EXISTS workflow_tags (
+    workflow_id INT NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
+    tag_id      INT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    PRIMARY     KEY (workflow_id, tag_id)
+);
+
+
+-- ----------------------
+-- TABLE ALTERATIONS      
+-- ----------------------                    
+-- ++++++++++++++++++++++                     
+-- ++++++++++++++++++++++ 
+
+-- =============================
+-- workflows alterations       |
+-- =============================
+ALTER TABLE workflows
+	ADD COLUMN IF NOT EXISTS user_id INT; -- null is global
+
+
+-- ===========================
+-- rhythms alterations       |
+-- ===========================
+ALTER TABLE rhythms
+	ADD COLUMN IF NOT EXISTS level_id INT REFERENCES levels(level_id);
+
+
+-- ===========================
+-- user_tokens alterations   |
+-- ===========================
 ALTER TABLE user_tokens
 	DROP CONSTRAINT IF EXISTS user_tokens_user_id_type_unique;
 ALTER TABLE user_tokens
 	ADD CONSTRAINT user_tokens_user_id_type_unique UNIQUE (user_id, type);
 
 -- ===========================
--- rhythms table alterations |
+-- users alterations         |
 -- ===========================
-ALTER TABLE rhythms
-ADD COLUMN IF NOT EXISTS level_id INT REFERENCES levels(level_id);
+ALTER TABLE users
+	ADD COLUMN IF NOT EXISTS permission_id INT REFERENCES permissions(permission_id);
 
--- =============================
--- workflows table alterations |
--- =============================
-ALTER TABLE workflows
-	ADD COLUMN IF NOT EXISTS user_id INT; -- null is global
+-- ===========================
+-- user_tokens index         |
+-- ===========================
+DROP INDEX IF EXISTS user_refresh_tokens_user_id_idx; -- double check
+DROP INDEX IF EXISTS user_refresh_tokens_expires_at_idx; -- double check
+DROP TABLE IF EXISTS user_refresh_tokens;
+
+
+-- ----------------------
+-- BASE INSERTIONS      
+-- ----------------------                    
+-- ++++++++++++++++++++++                     
+-- ++++++++++++++++++++++ 
+
+-- user_token_types
+INSERT INTO user_token_types (name)
+VALUES
+	('account verification'),
+	('refresh token'),
+	('password reset')
+ON CONFLICT (name)
+DO NOTHING;
+
+-- permissions
+INSERT INTO permissions (name)
+VALUES
+	('standard'),
+	('subscriber'),
+	('god')
+ON CONFLICT (name)
+DO NOTHING;
+
+-- levels
+INSERT INTO levels (name)
+VALUES
+	('beginner'),
+	('intermediate'),
+	('advanced')
+ON CONFLICT (name)
+DO NOTHING;
+
+-- subdivision_types
+INSERT INTO subdivision_types (name)
+VALUES
+	('base'),
+	('duplet'),
+	('triplet'),
+	('quadruplet'),
+	('quintuplet'),
+	('sextuplet'),
+	('septuplet'),
+	('octuplet'),
+	('nonuplet'),
+	('decuplet')
+ON CONFLICT (name)
+DO NOTHING;
