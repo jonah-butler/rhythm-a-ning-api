@@ -18,7 +18,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (r *UserRepository) InsertUserRegistrationHash(ctx *gin.Context, userId int, hash string, expiration time.Time) (bool, error) {
+func (r *UserRepository) InsertUserRegistrationHash(ctx *gin.Context, userId string, hash string, expiration time.Time) (bool, error) {
 	var inserted bool
 
 	err := r.db.QueryRowContext(
@@ -51,8 +51,8 @@ func (r *UserRepository) InsertNewUser(ctx *gin.Context, user model.RegisterUser
 	return registrationOutput, nil
 }
 
-func (r *UserRepository) GetUserIdByUsernameAndEmail(ctx *gin.Context, username string, email string) (int, error) {
-	var userId int
+func (r *UserRepository) GetUserIdByUsernameAndEmail(ctx *gin.Context, username string, email string) (string, error) {
+	var userId string
 
 	err := r.db.QueryRowContext(
 		ctx,
@@ -83,7 +83,7 @@ func (r *UserRepository) GetUserByHash(ctx *gin.Context, hash string, tokenType 
 	return user, nil
 }
 
-func (r *UserRepository) DeleteUserRegistrationHash(ctx *gin.Context, userId int, hash string) (bool, error) {
+func (r *UserRepository) DeleteUserRegistrationHash(ctx *gin.Context, userId string, hash string) (bool, error) {
 	var isDeleted bool
 
 	err := r.db.QueryRowContext(
@@ -114,7 +114,7 @@ func (r *UserRepository) GetUserByEmail(ctx *gin.Context, email string) (model.A
 	return user, nil
 }
 
-func (r *UserRepository) GetUserById(ctx *gin.Context, id int) (model.AuthenticateUserOutput, error) {
+func (r *UserRepository) GetUserById(ctx *gin.Context, id string) (model.AuthenticateUserOutput, error) {
 	var user model.AuthenticateUserOutput
 
 	err := r.db.QueryRowContext(
@@ -147,7 +147,7 @@ func (r *UserRepository) InsertRefreshToken(ctx *gin.Context, hashedToken string
 	return inserted, nil
 }
 
-func (r *UserRepository) InsertUserToken(ctx *gin.Context, token string, userId int, expiration time.Time, tokenType int) (bool, error) {
+func (r *UserRepository) InsertUserToken(ctx *gin.Context, token string, userId string, expiration time.Time, tokenType int) (bool, error) {
 	var inserted bool
 
 	err := r.db.QueryRowContext(
@@ -166,7 +166,7 @@ func (r *UserRepository) InsertUserToken(ctx *gin.Context, token string, userId 
 	return inserted, nil
 }
 
-func (r *UserRepository) UpdateUserPassword(ctx *gin.Context, password string, userId int) (bool, error) {
+func (r *UserRepository) UpdateUserPassword(ctx *gin.Context, password string, userId string) (bool, error) {
 	var updated bool
 
 	err := r.db.QueryRowContext(
@@ -182,7 +182,7 @@ func (r *UserRepository) UpdateUserPassword(ctx *gin.Context, password string, u
 	return updated, nil
 }
 
-func (r *UserRepository) DeleteUserToken(ctx *gin.Context, userId int, tokenType int, token string) (bool, error) {
+func (r *UserRepository) DeleteUserToken(ctx *gin.Context, userId string, tokenType int, token string) (bool, error) {
 	var deleted bool
 
 	err := r.db.QueryRowContext(

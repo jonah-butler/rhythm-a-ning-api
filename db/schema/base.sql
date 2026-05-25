@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- ----------------------
 -- TABLE CREATION      
 -- ----------------------                    
@@ -12,11 +14,38 @@ CREATE TABLE IF NOT EXISTS subdivision_types (
 	name           VARCHAR(50) NOT NULL UNIQUE -- 'base', 'duplet', 'triplet', etc
 );
 
+-- ================================
+-- lookup table for levels        |
+-- ================================
+CREATE TABLE IF NOT EXISTS levels (
+	level_id       SERIAL PRIMARY KEY,
+	name           VARCHAR(50) NOT NULL UNIQUE -- 'beginner', 'intermediate', 'advanced'
+);
+
+CREATE TABLE IF NOT EXISTS permissions (
+	permission_id SERIAL PRIMARY KEY,
+	name          TEXT NOT NULL UNIQUE
+);
+
+-- ===========================
+-- users table               |
+-- ===========================
+CREATE TABLE IF NOT EXISTS users (
+	user_id    		UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	username   		VARCHAR(50) NOT NULL UNIQUE,
+	email      		VARCHAR(100) NOT NULL UNIQUE,
+	password   		VARCHAR(255) NOT NULL,
+	permission_id INT REFERENCES permissions(permission_id),
+	created_at 		TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at 		TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
 -- =======================
 -- primary rhythms table |
 -- =======================
 CREATE TABLE IF NOT EXISTS rhythms (
-	rhythm_id        SERIAL PRIMARY KEY,
+	rhythm_id 			 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	bpm              SMALLINT NOT NULL,
 	beats            SMALLINT NOT NULL,
 	subdivision      INT NOT NULL REFERENCES subdivision_types(subdivision_id),
@@ -25,7 +54,10 @@ CREATE TABLE IF NOT EXISTS rhythms (
 	poly_beats       SMALLINT, -- can be NULL
 	poly_subdivision INT REFERENCES subdivision_types(subdivision_id), -- can be NULL
 	poly_state       SMALLINT[],
-	user_id          INT, -- NULL is global
+	user_id          UUID REFERENCES users(user_id), -- NULL is global
+	level_id 				 INT REFERENCES levels(level_id),
+	name 						 VARCHAR(250) NOT NULL,
+	description 		 TEXT, -- can be null
 	created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 ); 
@@ -34,7 +66,8 @@ CREATE TABLE IF NOT EXISTS rhythms (
 -- workflows table |
 -- =================
 CREATE TABLE IF NOT EXISTS workflows (
-	workflow_id SERIAL PRIMARY KEY,
+	workflow_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id 	  UUID, -- null is global
 	name        VARCHAR(250) NOT NULL,
 	description VARCHAR(500),
 	created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -47,38 +80,12 @@ CREATE TABLE IF NOT EXISTS workflows (
 -- with the addition of position within the workflow |
 -- ===================================================
 CREATE TABLE IF NOT EXISTS workflow_rhythms (
-    workflow_rhythm_id SERIAL PRIMARY KEY,
-    workflow_id        INT NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
-    rhythm_id          INT NOT NULL REFERENCES rhythms(rhythm_id) ON DELETE CASCADE,
+    workflow_rhythm_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_id        UUID NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
+    rhythm_id          UUID NOT NULL REFERENCES rhythms(rhythm_id) ON DELETE CASCADE,
     measures           SMALLINT NOT NULL,
     position           SMALLINT NOT NULL
 );
-
--- ================================
--- lookup table for levels        |
--- ================================
-CREATE TABLE IF NOT EXISTS levels (
-	level_id       SERIAL PRIMARY KEY,
-	name           VARCHAR(50) NOT NULL UNIQUE -- 'beginner', 'intermediate', 'advanced'
-);
-
--- ===========================
--- users table               |
--- ===========================
-CREATE TABLE IF NOT EXISTS users (
-	user_id    SERIAL PRIMARY KEY,
-	username   VARCHAR(50) NOT NULL UNIQUE,
-	email      VARCHAR(100) NOT NULL UNIQUE,
-	password   VARCHAR(255) NOT NULL,
-	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS permissions (
-	permission_id SERIAL PRIMARY KEY,
-	name          TEXT NOT NULL UNIQUE
-);
-
 
 -- =============================
 -- user token types            |
@@ -92,8 +99,8 @@ CREATE TABLE IF NOT EXISTS user_token_types (
 -- user tokens                 |
 -- =============================
 CREATE TABLE IF NOT EXISTS user_tokens (
-    user_token_id SERIAL PRIMARY KEY,
-    user_id       INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_token_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     token         TEXT NOT NULL UNIQUE,
 		type          INT NOT NULL REFERENCES user_token_types(token_type_id),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -113,9 +120,9 @@ CREATE TABLE IF NOT EXISTS tags (
 -- associating workflows with tags  |
 -- ==================================
 CREATE TABLE IF NOT EXISTS workflow_tags (
-    workflow_id INT NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
+    workflow_id UUID NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
     tag_id      INT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
-    PRIMARY     KEY (workflow_id, tag_id)
+    PRIMARY KEY (workflow_id, tag_id)
 );
 
 
@@ -125,44 +132,13 @@ CREATE TABLE IF NOT EXISTS workflow_tags (
 -- ++++++++++++++++++++++                     
 -- ++++++++++++++++++++++ 
 
--- =============================
--- workflows alterations       |
--- =============================
-ALTER TABLE workflows
-	ADD COLUMN IF NOT EXISTS user_id INT; -- null is global
-
-
--- ===========================
--- rhythms alterations       |
--- ===========================
-ALTER TABLE rhythms
-	ADD COLUMN IF NOT EXISTS level_id INT REFERENCES levels(level_id);
-
-
--- ===========================
--- user_tokens alterations   |
--- ===========================
 ALTER TABLE user_tokens
 	DROP CONSTRAINT IF EXISTS user_tokens_user_id_type_unique;
 ALTER TABLE user_tokens
 	ADD CONSTRAINT user_tokens_user_id_type_unique UNIQUE (user_id, type);
 
--- ===========================
--- users alterations         |
--- ===========================
-ALTER TABLE users
-	ADD COLUMN IF NOT EXISTS permission_id INT REFERENCES permissions(permission_id);
-
--- ===========================
--- user_tokens index         |
--- ===========================
-DROP INDEX IF EXISTS user_refresh_tokens_user_id_idx; -- double check
-DROP INDEX IF EXISTS user_refresh_tokens_expires_at_idx; -- double check
-DROP TABLE IF EXISTS user_refresh_tokens;
-
-
 -- ----------------------
--- BASE INSERTIONS      
+-- DEFAULT INSERTIONS      
 -- ----------------------                    
 -- ++++++++++++++++++++++                     
 -- ++++++++++++++++++++++ 
@@ -209,3 +185,16 @@ VALUES
 	('decuplet')
 ON CONFLICT (name)
 DO NOTHING;
+
+-- tags
+INSERT INTO tags (name, description)
+VALUES
+  ('Fundamentals', 'Exercises to gain familiarity with the metronome and develop a strong rhythmic foundation'),
+  ('Odd Meters', 'Explore odd meters to develop a strong internal clock'),
+  ('Polyrhythms', ''),
+  ('African Rhythms', ''),
+  ('Speed Development', ''),
+  ('Slow Motion', 'To speed up sometimes requires slowing down'),
+  ('Displacement', '')
+	ON CONFLICT (name)
+	DO NOTHING;

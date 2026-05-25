@@ -65,7 +65,7 @@ func (u *UserHandler) RegisterUser(c *gin.Context) {
 
 	expiration := time.Now().Add(10 * time.Minute)
 
-	inserted, err := u.repo.InsertUserRegistrationHash(c, *results.UserID, hash, expiration)
+	inserted, err := u.repo.InsertUserRegistrationHash(c, results.UserID.String(), hash, expiration)
 	if err != nil || !inserted {
 		respondErr(c, "failed to save user registration hash", ErrRegistration)
 		return
@@ -106,7 +106,7 @@ func (u *UserHandler) VerifyUser(c *gin.Context) {
 		return
 	}
 
-	didDelete, err := u.repo.DeleteUserRegistrationHash(c, user.UserId, hash)
+	didDelete, err := u.repo.DeleteUserRegistrationHash(c, user.UserId.String(), hash)
 	if err != nil || !didDelete {
 		respondErr(c, "failed to complete user registration", ErrUserVerification)
 		return
@@ -213,7 +213,7 @@ func (u *UserHandler) RefreshTokens(c *gin.Context) {
 	}
 
 	jwtClaims := new(model.UserClaims)
-	err = validateToken(token, jwtClaims)
+	err = ValidateToken(token, jwtClaims)
 
 	if err == nil {
 		// JWT is still valid — no refresh needed
@@ -235,7 +235,7 @@ func (u *UserHandler) RefreshTokens(c *gin.Context) {
 	}
 
 	refreshClaims := new(jwt.RegisteredClaims)
-	if err = validateToken(refreshToken, refreshClaims); err != nil {
+	if err = ValidateToken(refreshToken, refreshClaims); err != nil {
 		respondErr(c, "invalid refresh token: "+err.Error(), ErrUnauthorized)
 		return
 	}
@@ -253,7 +253,7 @@ func (u *UserHandler) RefreshTokens(c *gin.Context) {
 		return
 	}
 
-	authenticatedUser, err := u.repo.GetUserById(c, user.UserId)
+	authenticatedUser, err := u.repo.GetUserById(c, user.UserId.String())
 	if err != nil {
 		respondErr(c, "failed to get user by id: "+err.Error(), ErrUnauthorized)
 		return
@@ -314,7 +314,7 @@ func (u *UserHandler) ResetPassword(c *gin.Context) {
 
 	expiration := time.Now().Add(10 * time.Minute)
 
-	didInsert, err := u.repo.InsertUserToken(c, hash, user.UserId, expiration, int(model.PasswordReset))
+	didInsert, err := u.repo.InsertUserToken(c, hash, user.UserId.String(), expiration, int(model.PasswordReset))
 	if err != nil || !didInsert {
 		respondErr(c, "failed to insert user password reset token", ErrPasswordResetFailed)
 		return
@@ -362,13 +362,13 @@ func (u *UserHandler) VerifyPasswordReset(c *gin.Context) {
 		return
 	}
 
-	updated, err := u.repo.UpdateUserPassword(c, hashedPassword, user.UserId)
+	updated, err := u.repo.UpdateUserPassword(c, hashedPassword, user.UserId.String())
 	if err != nil || !updated {
 		respondErr(c, "failed to update user password", err)
 		return
 	}
 
-	deleted, err := u.repo.DeleteUserToken(c, user.UserId, int(model.PasswordReset), hash)
+	deleted, err := u.repo.DeleteUserToken(c, user.UserId.String(), int(model.PasswordReset), hash)
 	if err != nil || !deleted {
 		respondErr(c, "failed to delete user hash", ErrPasswordResetFailed)
 		return

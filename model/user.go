@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type UserBase struct {
@@ -21,10 +22,10 @@ type RegisterUserInput struct {
 }
 
 type AuthenticateUserOutput struct {
-	UserId   int    `json:"userId"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	UserId   uuid.UUID `json:"userId"`
+	Email    string    `json:"email"`
+	Username string    `json:"username"`
+	Password string    `json:"password"`
 }
 
 type VerifyUserInput struct {
@@ -37,12 +38,12 @@ type VerifyPasswordResetInput struct {
 }
 
 type UserTokenSlim struct {
-	UserId    int
+	UserId    uuid.UUID
 	ExpiresAt time.Time
 }
 
 type RegisterUserOutput struct {
-	UserID        *int
+	UserID        *uuid.UUID
 	Email         *string
 	UsernameTaken bool
 	EmailTaken    bool
@@ -55,9 +56,9 @@ type UserLoginInput struct {
 
 type UserClaims struct {
 	jwt.RegisteredClaims
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	UserId   int    `json:"userId"`
+	Email    string    `json:"email"`
+	Username string    `json:"username"`
+	UserId   uuid.UUID `json:"userId"`
 }
 
 type TokenType int

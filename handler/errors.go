@@ -37,6 +37,7 @@ func responseSuccessNoContent(c *gin.Context, logMsg string) {
 	log.Println(logMsg)
 	c.Status(http.StatusNoContent)
 }
+
 func respondBadRequest(c *gin.Context, logMsg, userMsg string) {
 	log.Println(logMsg)
 	c.JSON(http.StatusBadRequest, gin.H{"error": userMsg})

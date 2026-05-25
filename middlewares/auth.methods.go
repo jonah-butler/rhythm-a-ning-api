@@ -1,9 +1,6 @@
-package handler
+package middlewares
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -12,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var secretKey = []byte(os.Getenv("JWT_SECRET_KEY"))
@@ -23,46 +19,7 @@ const (
 	REFRESH = "refresh-token"
 )
 
-func hashPassword(password string) (string, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-
-	return string(hashedPassword), nil
-}
-
-func generateToken() (string, string, error) {
-	// Generate 32 random bytes (256 bits)
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		return "", "", err
-	}
-
-	// Encode the random bytes to a URL-safe base64 string (without padding)
-	token := base64.RawURLEncoding.EncodeToString(tokenBytes)
-
-	// Compute the SHA-256 hash of the token for storage
-	tokenHash := computeHash(token)
-
-	return token, tokenHash, nil
-}
-
-func computeHash(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return base64.RawURLEncoding.EncodeToString(hash[:])
-}
-
-func validateHashedPassword(password, hashedPassword string) error {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func generateAccessClaims(user model.AuthenticateUserOutput) (*model.UserClaims, string, error) {
+func GenerateAccessClaims(user model.AuthenticateUserOutput) (*model.UserClaims, string, error) {
 	fmt.Println(string(secretKey))
 	claim := &model.UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -85,7 +42,7 @@ func generateAccessClaims(user model.AuthenticateUserOutput) (*model.UserClaims,
 	return claim, tokenString, nil
 }
 
-func generateRefreshClaims(userClaims *model.UserClaims) (*jwt.RegisteredClaims, string, error) {
+func GenerateRefreshClaims(userClaims *model.UserClaims) (*jwt.RegisteredClaims, string, error) {
 	refreshClaim := jwt.RegisteredClaims{
 		Issuer:    issuer,
 		ExpiresAt: generateJWTRefreshExp(14), // 2 week expiration
@@ -102,23 +59,28 @@ func generateRefreshClaims(userClaims *model.UserClaims) (*jwt.RegisteredClaims,
 	return &refreshClaim, signedToken, nil
 }
 
-func ValidateToken[T jwt.Claims](token string, claimsDef T) error {
+func ValidateToken[T jwt.Claims](token string, claimsDef T) (T, error) {
 	if len(token) == 0 {
-		return errors.New("no token available")
+		return claimsDef, errors.New("no token available")
 	}
 
-	_, err := jwt.ParseWithClaims(token, claimsDef,
+	parsed, err := jwt.ParseWithClaims(token, claimsDef,
 		func(token *jwt.Token) (any, error) {
 			return secretKey, nil
 		})
 	if err != nil {
-		return err
+		return claimsDef, err
 	}
 
-	return nil
+	claims, ok := parsed.Claims.(T)
+	if !ok {
+		return claimsDef, errors.New("invalid claims type")
+	}
+
+	return claims, nil
 }
 
-func setAuthCookies(ctx *gin.Context, jwt string, jwtExpiration int64, refreshToken string, refreshExpiration int64) {
+func SetAuthCookies(ctx *gin.Context, jwt string, jwtExpiration int64, refreshToken string, refreshExpiration int64) {
 	secure := os.Getenv("APP_ENV") == "prod"
 	// set jwt cookie
 	ctx.SetCookie(JWT, jwt, int(jwtExpiration), "/", "", secure, true)
@@ -126,21 +88,15 @@ func setAuthCookies(ctx *gin.Context, jwt string, jwtExpiration int64, refreshTo
 	ctx.SetCookie(REFRESH, refreshToken, int(refreshExpiration), "/v1/user/refresh", "", secure, true)
 }
 
-func GetAuthCookies(ctx *gin.Context) (jwt, refresh string, err error) {
+func GetAuthCookie(ctx *gin.Context) (jwt string, err error) {
 	jwt, err = ctx.Cookie(JWT)
 	if err != nil {
 		return
 	}
 
-	refresh, err = ctx.Cookie(REFRESH)
 	return
 }
 
 func generateJWTRefreshExp(days int) *jwt.NumericDate {
 	return jwt.NewNumericDate(time.Now().Add((time.Hour * 24) * time.Duration(days)).UTC())
-}
-
-func hashToken(token string) string {
-	h := sha256.Sum256([]byte(token))
-	return fmt.Sprintf("%x", h)
 }

@@ -12,6 +12,21 @@ var GET_SUBDIVISION_TYPES string
 //go:embed levels/get_rhythm_levels.sql
 var GET_RHYTHM_LEVELS string
 
+//go:embed rhythms/create_rhythm.sql
+var CREATE_RHYTHM string
+
+//go:embed rhythms/get_rhythm_by_id.sql
+var GET_RHYTHM_BY_ID string
+
+//go:embed rhythms/update_rhythm_by_id.sql
+var UPDATE_RHYTHM_BY_ID string
+
+//go:embed rhythms/delete_rhythm_by_id.sql
+var DELETE_RHYTHM_BY_ID string
+
+//go:embed rhythms/get_rhythms.sql
+var GET_RHYTHMS string
+
 // USER QUERIES
 //
 //go:embed users/register_user.sql
