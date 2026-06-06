@@ -11,10 +11,12 @@ WITH updated AS (
     poly_state       = $8,
     level_id         = (SELECT level_id FROM levels WHERE name = $9),
     name             = $10,
-    description      = $11,       
+    description      = $11,
+    sounds           = $12,
+    poly_sounds      = $13,
     updated_at       = NOW()
-  WHERE rhythm_id = $12
-  AND user_id     = $13
+  WHERE rhythm_id = $14
+  AND user_id     = $15
   RETURNING *
 )
 SELECT
@@ -31,6 +33,8 @@ SELECT
   updated.name,
   updated.description,
   l.name as level,
+  updated.sounds,
+  updated.poly_sounds,
   updated.created_at,
   updated.updated_at
 FROM updated

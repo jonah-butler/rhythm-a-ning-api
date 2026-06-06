@@ -8,10 +8,12 @@ WITH inserted AS (
     poly_beats,
     poly_subdivision,
     poly_state,
+    poly_sounds,
     user_id,
     name,
     description,
-    level_id
+    level_id,
+    sounds
   )
   VALUES (
     $1, -- bpm
@@ -22,10 +24,12 @@ WITH inserted AS (
     $6, --poly beats
     (SELECT subdivision_id FROM subdivision_types WHERE name = $7), -- poly subdivision
     $8, -- poly state
-    $9, -- user id
-    $10, -- name
-    $11, -- description
-    (SELECT level_id FROM levels WHERE name = $12) -- level
+    $9, -- poly sounds
+    $10, -- user id
+    $11, -- name
+    $12, -- description
+    (SELECT level_id FROM levels WHERE name = $13), -- level
+    $14
   )
   RETURNING *
 )
@@ -39,12 +43,14 @@ SELECT
   inserted.poly_beats,
   pst.name AS poly_subdivision, -- shadows poly subdivision with string || NULL value used in client
   inserted.poly_state,
+  inserted.poly_sounds,
   inserted.user_id,
   inserted.created_at,
   inserted.updated_at,
   inserted.name,
   inserted.description,
-  l.name as level
+  l.name as level,
+  inserted.sounds
 FROM inserted
 JOIN subdivision_types st ON st.subdivision_id = inserted.subdivision
 LEFT JOIN subdivision_types pst ON pst.subdivision_id = inserted.poly_subdivision

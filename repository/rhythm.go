@@ -47,6 +47,8 @@ func (r *RhythmRepository) GetRhythmById(ctx *gin.Context, id uuid.UUID) (model.
 		&rhythm.Description,
 		&rhythm.CreatedAt,
 		&rhythm.UpdatedAt,
+		&rhythm.Sounds,
+		&rhythm.PolySounds,
 	)
 	if err != nil {
 		return rhythm, err
@@ -122,6 +124,8 @@ func (r *RhythmRepository) GetRhythms(ctx *gin.Context, rhythmsRequest model.Get
 			&rhythm.Level,
 			&rhythm.Name,
 			&rhythm.Description,
+			&rhythm.Sounds,
+			&rhythm.PolySounds,
 			&rhythm.CreatedAt,
 			&rhythm.UpdatedAt,
 			&total,
@@ -169,6 +173,8 @@ func (r *RhythmRepository) UpdateRhythmById(ctx *gin.Context, rhythmId uuid.UUID
 		update.Level,
 		update.Name,
 		update.Description,
+		update.Sounds,
+		update.PolySounds,
 		rhythmId,
 		userId,
 	).Scan(
@@ -185,6 +191,8 @@ func (r *RhythmRepository) UpdateRhythmById(ctx *gin.Context, rhythmId uuid.UUID
 		&rhythm.Name,
 		&rhythm.Description,
 		&rhythm.Level,
+		&rhythm.Sounds,
+		&rhythm.PolySounds,
 		&rhythm.CreatedAt,
 		&rhythm.UpdatedAt,
 	)
@@ -266,10 +274,12 @@ func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.Rhyth
 		nil,
 		nil,
 		nil,
+		nil,
 		userId,
 		rhythm.Name,
 		rhythm.Description,
 		rhythm.Level,
+		rhythm.Sounds,
 	).Scan(
 		&inserted.Id,
 		&inserted.Bpm,
@@ -280,12 +290,14 @@ func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.Rhyth
 		&inserted.PolyBeats,
 		&inserted.PolySubdivision,
 		pq.Array(&inserted.PolyState),
+		&inserted.PolySounds,
 		&inserted.UserId,
 		&inserted.CreatedAt,
 		&inserted.UpdatedAt,
 		&inserted.Name,
 		&inserted.Description,
 		&inserted.Level,
+		&inserted.Sounds,
 	)
 	if err != nil {
 		return inserted, err
@@ -315,10 +327,12 @@ func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.Rhyth
 		rhythm.PolyBeats,
 		rhythm.PolySubdivision,
 		rhythm.PolyState,
+		rhythm.PolySounds,
 		userId,
 		rhythm.Name,
 		rhythm.Description,
 		rhythm.Level,
+		rhythm.Sounds,
 	).Scan(
 		&inserted.Id,
 		&inserted.Bpm,
@@ -329,12 +343,14 @@ func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.Rhyth
 		&inserted.PolyBeats,
 		&inserted.PolySubdivision,
 		pq.Array(&inserted.PolyState),
+		&inserted.PolySounds,
 		&inserted.UserId,
 		&inserted.CreatedAt,
 		&inserted.UpdatedAt,
 		&inserted.Name,
 		&inserted.Description,
 		&inserted.Level,
+		&inserted.Sounds,
 	)
 	if err != nil {
 		return inserted, err

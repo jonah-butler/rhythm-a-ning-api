@@ -27,6 +27,15 @@ CREATE TABLE IF NOT EXISTS permissions (
 	name          TEXT NOT NULL UNIQUE
 );
 
+-- =======================================
+-- tags for labeling workflows/rhythms   |
+-- =======================================
+CREATE TABLE IF NOT EXISTS tags (
+	tag_id      SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL UNIQUE,
+	description TEXT
+);
+
 -- ===========================
 -- users table               |
 -- ===========================
@@ -48,16 +57,19 @@ CREATE TABLE IF NOT EXISTS rhythms (
 	rhythm_id 			 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	bpm              SMALLINT NOT NULL,
 	beats            SMALLINT NOT NULL,
+	sounds           JSONB, -- 
 	subdivision      INT NOT NULL REFERENCES subdivision_types(subdivision_id),
 	state            SMALLINT[] NOT NULL,
 	is_poly          BOOLEAN NOT NULL DEFAULT FALSE,
 	poly_beats       SMALLINT, -- can be NULL
 	poly_subdivision INT REFERENCES subdivision_types(subdivision_id), -- can be NULL
 	poly_state       SMALLINT[],
+	poly_sounds      JSONB, -- 
 	user_id          UUID REFERENCES users(user_id), -- NULL is global
 	level_id 				 INT REFERENCES levels(level_id),
 	name 						 VARCHAR(250) NOT NULL,
 	description 		 TEXT, -- can be null
+	tag_id           INT REFERENCES tags(tag_id),
 	created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 ); 
@@ -105,15 +117,6 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 		type          INT NOT NULL REFERENCES user_token_types(token_type_id),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 		expires_at    TIMESTAMPTZ NOT NULL
-);
-
--- ===============================
--- tags for labeling workflows   |
--- ===============================
-CREATE TABLE IF NOT EXISTS tags (
-	tag_id      SERIAL PRIMARY KEY,
-  name        TEXT NOT NULL UNIQUE,
-	description TEXT
 );
 
 -- ===================================

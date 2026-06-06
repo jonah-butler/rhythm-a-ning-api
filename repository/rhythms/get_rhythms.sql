@@ -12,6 +12,8 @@
     l.name as level,
     r.name,
     r.description,
+    r.sounds,
+    r.poly_sounds,
     r.created_at,
     r.updated_at,
     COUNT(*) OVER() as total

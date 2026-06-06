@@ -13,7 +13,9 @@ SELECT
   r.name,
   r.description,
   r.created_at,
-  r.updated_at
+  r.updated_at,
+  r.sounds,
+  r.poly_sounds
 FROM rhythms r
 JOIN subdivision_types st ON st.subdivision_id = r.subdivision
 LEFT JOIN subdivision_types pst ON pst.subdivision_id = r.poly_subdivision
