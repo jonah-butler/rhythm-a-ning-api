@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"rhythmapi/model"
 	"time"
@@ -15,7 +18,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var secretKey = []byte(os.Getenv("JWT_SECRET_KEY"))
+func getSecretKey() []byte {
+	return []byte(os.Getenv("JWT_SECRET_KEY"))
+}
+
+func getCloudflareSecret() string {
+	return os.Getenv("CLOUDFLARE_TURNSTILE_SECRET")
+}
+
 var issuer = "rhythmaning-api"
 
 const (
@@ -63,7 +73,6 @@ func validateHashedPassword(password, hashedPassword string) error {
 }
 
 func generateAccessClaims(user model.AuthenticateUserOutput) (*model.UserClaims, string, error) {
-	fmt.Println(string(secretKey))
 	claim := &model.UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    issuer,
@@ -77,7 +86,7 @@ func generateAccessClaims(user model.AuthenticateUserOutput) (*model.UserClaims,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
-	tokenString, err := token.SignedString(secretKey)
+	tokenString, err := token.SignedString(getSecretKey())
 	if err != nil {
 		return nil, "", err
 	}
@@ -94,7 +103,7 @@ func generateRefreshClaims(userClaims *model.UserClaims) (*jwt.RegisteredClaims,
 	}
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaim)
-	signedToken, err := refreshToken.SignedString(secretKey)
+	signedToken, err := refreshToken.SignedString(getSecretKey())
 	if err != nil {
 		return nil, "", err
 	}
@@ -109,7 +118,7 @@ func ValidateToken[T jwt.Claims](token string, claimsDef T) error {
 
 	_, err := jwt.ParseWithClaims(token, claimsDef,
 		func(token *jwt.Token) (any, error) {
-			return secretKey, nil
+			return getSecretKey(), nil
 		})
 	if err != nil {
 		return err
@@ -143,4 +152,45 @@ func generateJWTRefreshExp(days int) *jwt.NumericDate {
 func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return fmt.Sprintf("%x", h)
+}
+
+type TurnstileResponse struct {
+	Success bool `json:"success"`
+}
+
+func verifyTurnstileToken(ctx *gin.Context, turnstileToken string) (bool, error) {
+	payload := map[string]any{
+		"secret":   getCloudflareSecret(),
+		"response": turnstileToken,
+	}
+
+	fmt.Println(payload)
+
+	body, _ := json.Marshal(payload)
+
+	endpoint := "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+	req, err := http.NewRequestWithContext(ctx.Request.Context(), http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		fmt.Println("error building request", err)
+		return false, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("error response", err)
+		return false, err
+	}
+
+	defer resp.Body.Close()
+
+	var result TurnstileResponse
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		fmt.Println("error decoding response", err)
+		return false, err
+	}
+
+	return result.Success, nil
 }

@@ -19,6 +19,7 @@ type UserPassword struct {
 type RegisterUserInput struct {
 	UserBase
 	UserPassword
+	TurnstileToken string `json:"turnstileToken" binding:"required"`
 }
 
 type AuthenticateUserOutput struct {

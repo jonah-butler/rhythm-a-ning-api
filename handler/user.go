@@ -34,6 +34,19 @@ func (u *UserHandler) RegisterUser(c *gin.Context) {
 		user.Username = user.Email
 	}
 
+	success, err := verifyTurnstileToken(c, user.TurnstileToken)
+	if err != nil || !success {
+		var errorMessage string
+		if err.Error() == "" {
+			errorMessage = "validation failed"
+		} else {
+			errorMessage = err.Error()
+		}
+
+		respondErr(c, "failed to validate turnstile token: "+errorMessage, ErrRegistration)
+		return
+	}
+
 	hashedPassword, err := hashPassword(user.Password)
 	if err != nil {
 		respondErr(c, "failed to generate password hash: "+err.Error(), ErrRegistration)
