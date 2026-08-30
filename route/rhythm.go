@@ -16,6 +16,8 @@ func SetupRhythmRoutes(router *gin.RouterGroup, handler *handler.RhythmHandler) 
 		rhythms.DELETE("/:id", m.AuthorizeUser(), handler.DeleteRhythmById) // delete rhythm by id
 		rhythms.PUT("/:id", m.AuthorizeUser(), handler.UpdateRhythmById)    // update rhythm by id
 
+		// rhythms.POST("/tags", m.AuthorizeUser(), handler.CreateTags)
+
 		rhythms.GET("/subdivisions", handler.GetSubdivisionTypes)
 		rhythms.GET("/levels", handler.GetRhythmLevels)
 	}

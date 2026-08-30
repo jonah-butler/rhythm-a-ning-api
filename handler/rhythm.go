@@ -141,6 +141,16 @@ func (r *RhythmHandler) GetRhythmLevels(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, rhythmLevels)
 }
 
+// func (r *RhythmHandler) CreateTags(ctx *gin.Context) {
+// 	var tags model.CreateTagInput
+
+// 	if err := ctx.ShouldBindBodyWithJSON(&tags); err != nil {
+// 		respondErr(ctx, "failed to parse tag body", rhythm.ErrTagCreation)
+// 		return
+// 	}
+
+// }
+
 func (r *RhythmHandler) CreateRhtyhm(ctx *gin.Context) {
 	var discriminator model.RhythmDiscriminator
 
@@ -172,7 +182,7 @@ func (r *RhythmHandler) CreateRhtyhm(ctx *gin.Context) {
 		var input model.RhythmInputPoly
 
 		if err := ctx.ShouldBindBodyWith(&input, binding.JSON); err != nil {
-			respondErr(ctx, "failed to parse poly rhythm", rhythm.ErrRhythmCreateError)
+			respondErr(ctx, "failed to parse poly rhythm"+err.Error(), rhythm.ErrRhythmCreateError)
 			return
 		}
 

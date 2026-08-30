@@ -29,6 +29,7 @@ func AuthorizeUser() gin.HandlerFunc {
 		}
 
 		c.Set("userId", claims.UserId)
+		c.Set("email", claims.Email)
 		c.Next()
 	}
 }

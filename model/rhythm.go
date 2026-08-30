@@ -85,6 +85,10 @@ type RhythmInputPoly struct {
 	PolySubdivision *SubdivisionTypes `json:"polySubdivision"`
 }
 
+type CreateTagInput struct {
+	Tags []string `json:"tags"`
+}
+
 // from DB
 type Rhythm struct {
 	RhythmInputPoly           // contains all fields

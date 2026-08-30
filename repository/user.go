@@ -35,6 +35,23 @@ func (r *UserRepository) InsertUserRegistrationHash(ctx *gin.Context, userId str
 	return inserted, nil
 }
 
+func (r *UserRepository) UpdateUserRegistrationHash(ctx *gin.Context, hash string, expiration time.Time, userId string) (bool, error) {
+	var updated bool
+
+	err := r.db.QueryRowContext(
+		ctx,
+		UPDATE_USER_REGISTRATION_HASH,
+		hash,
+		expiration,
+		userId,
+	).Scan(&updated)
+	if err != nil {
+		return updated, err
+	}
+
+	return updated, nil
+}
+
 func (r *UserRepository) InsertNewUser(ctx *gin.Context, user model.RegisterUserInput) (model.RegisterUserOutput, error) {
 	var registrationOutput model.RegisterUserOutput
 
@@ -96,6 +113,8 @@ func (r *UserRepository) DeleteUserRegistrationHash(ctx *gin.Context, userId str
 		return isDeleted, err
 	}
 
+	fmt.Println("did delete: ", isDeleted)
+
 	return isDeleted, nil
 }
 
@@ -106,7 +125,7 @@ func (r *UserRepository) GetUserByEmail(ctx *gin.Context, email string) (model.A
 		ctx,
 		AUTHENTICATE_USER,
 		email,
-	).Scan(&user.UserId, &user.Username, &user.Email, &user.Password)
+	).Scan(&user.UserId, &user.Username, &user.Email, &user.Password, &user.AccountPending)
 	if err != nil {
 		return user, err
 	}
@@ -197,4 +216,20 @@ func (r *UserRepository) DeleteUserToken(ctx *gin.Context, userId string, tokenT
 	}
 
 	return deleted, nil
+}
+
+func (r *UserRepository) GetUserToken(ctx *gin.Context, userId string, tokenType int) (string, error) {
+	var token string
+
+	err := r.db.QueryRowContext(
+		ctx,
+		GET_USER_TOKEN,
+		userId,
+		tokenType,
+	).Scan(&token)
+	if err != nil {
+		return token, err
+	}
+
+	return token, nil
 }

@@ -98,17 +98,17 @@ func PreparePasswordResetEmail(token string, toAddress string) (*sesv2.SendEmail
 		return nil, ErrDaemonAddrNotFound
 	}
 
-	url := "https://rhythmaning.app/password-reset?token=" + token
+	url := "https://rhythmaning.app/verify-reset-password?token=" + token
 
 	plainText := "A request was made to reset your password.\n\n" +
 		"If you did not request this, no further action is needed.\n\n" +
-		"Paste the link below into a new tab to verify your account's email and finish activating your rhythmaning.app account.\n\n" +
+		"Paste the link below into a new tab to reset your account's password.\n\n" +
 		"This link is only valid for 10 minutes" +
 		url + "\n\n"
 
 	html := "<div><h3>A request was made to reset your password.</h3></div>" +
 		"<div><p>If you did not request this, no further action is needed.</p></div>" +
-		"<div><p>Click the link below to verify your account's email and finish activating your rhythmaning.app account.</p></div>" +
+		"<div><p>Click the button below to reset your account's email.</p></div>" +
 		"<div><strong>This link is only valid for 10 minutes</strong></div>" +
 		"<div><a href='" + url + "'><button>Reset Password</button></a>"
 

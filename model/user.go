@@ -23,10 +23,11 @@ type RegisterUserInput struct {
 }
 
 type AuthenticateUserOutput struct {
-	UserId   uuid.UUID `json:"userId"`
-	Email    string    `json:"email"`
-	Username string    `json:"username"`
-	Password string    `json:"password"`
+	UserId         uuid.UUID `json:"userId"`
+	Email          string    `json:"email"`
+	Username       string    `json:"username"`
+	Password       string    `json:"password"`
+	AccountPending bool      `json:"-"`
 }
 
 type VerifyUserInput struct {

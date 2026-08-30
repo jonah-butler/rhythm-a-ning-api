@@ -22,4 +22,5 @@ JOIN subdivision_types st ON st.subdivision_id = r.subdivision
 LEFT JOIN subdivision_types pst ON pst.subdivision_id = r.poly_subdivision
 LEFT JOIN levels l ON l.level_id = r.level_id
 WHERE r.user_id = $1
-LIMIT 20 OFFSET 20 * $2;
+ORDER BY r.created_at DESC
+LIMIT 10 OFFSET 10 * $2;

@@ -13,15 +13,14 @@ var (
 	ErrNoUserInContext = errors.New("user not found in context")
 )
 
-func GetUserFromContext(ctx *gin.Context) (string, error) {
+func GetUserFromContext(ctx *gin.Context) (*uuid.UUID, error) {
 	userId, exists := ctx.Get(middlewares.USERID)
 	if !exists {
-		return "", ErrNoUserInContext
+		return nil, ErrNoUserInContext
 	}
 
 	converted := userId.(uuid.UUID)
-
-	return converted.String(), nil
+	return &converted, nil
 }
 
 func ValidatePolyRhythm(rhythm model.RhythmInputPoly) (isValid bool) {

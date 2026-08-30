@@ -10,4 +10,5 @@ var (
 	ErrDeleteRhythmById  = errors.New("failed to delete rhythm by id")
 	ErrUpdateRhythmById  = errors.New("failed to update rhythm by ID")
 	ErrGetRhythms        = errors.New("failed to get rhythms")
+	ErrTagCreation       = errors.New("failed to create tags")
 )

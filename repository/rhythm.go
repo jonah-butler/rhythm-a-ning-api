@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"rhythmapi/model"
 	"rhythmapi/request"
 
@@ -316,7 +317,15 @@ func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.Rhyth
 		return inserted, err
 	}
 
-	err = r.db.QueryRowContext(
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return inserted, err
+	}
+	defer tx.Rollback()
+
+	fmt.Println(rhythm.Subdivision, &rhythm.PolySubdivision)
+
+	err = tx.QueryRowContext(
 		ctx,
 		CREATE_RHYTHM,
 		rhythm.Bpm,
@@ -325,7 +334,7 @@ func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.Rhyth
 		pq.Array(rhythm.State),
 		true,
 		rhythm.PolyBeats,
-		rhythm.PolySubdivision,
+		&rhythm.PolySubdivision,
 		rhythm.PolyState,
 		rhythm.PolySounds,
 		userId,
@@ -353,6 +362,10 @@ func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.Rhyth
 		&inserted.Sounds,
 	)
 	if err != nil {
+		return inserted, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return inserted, err
 	}
 

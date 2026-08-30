@@ -29,7 +29,7 @@ WITH inserted AS (
     $11, -- name
     $12, -- description
     (SELECT level_id FROM levels WHERE name = $13), -- level
-    $14
+    $14 -- sounds
   )
   RETURNING *
 )

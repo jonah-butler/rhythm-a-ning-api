@@ -18,10 +18,12 @@ type IRhythmRepository interface {
 	UpdateRhythmById(ctx *gin.Context, id uuid.UUID, rhythm model.RhythmInputPoly) (model.Rhythm, error)
 	CreateMonoRhythm(ctx *gin.Context, rhythm model.RhythmInputMono) (model.Rhythm, error)
 	CreatePolyRhythm(ctx *gin.Context, rhythm model.RhythmInputPoly) (model.Rhythm, error)
+	// CreateTags(ctx *gin.Context, tags model.CreateTagInput) error
 }
 
 type IUserRepository interface {
 	InsertUserRegistrationHash(ctx *gin.Context, userId string, hash string, expiration time.Time) (bool, error)
+	UpdateUserRegistrationHash(ctx *gin.Context, hash string, expiration time.Time, userId string) (bool, error)
 	InsertNewUser(ctx *gin.Context, user model.RegisterUserInput) (model.RegisterUserOutput, error)
 	GetUserIdByUsernameAndEmail(ctx *gin.Context, username string, email string) (string, error)
 	GetUserByHash(ctx *gin.Context, hash string, tokenType model.TokenType) (model.UserTokenSlim, error)
@@ -32,4 +34,5 @@ type IUserRepository interface {
 	InsertUserToken(ctx *gin.Context, token string, userId string, expiration time.Time, tokenType int) (bool, error)
 	UpdateUserPassword(ctx *gin.Context, password string, userId string) (bool, error)
 	DeleteUserToken(ctx *gin.Context, userId string, tokenType int, token string) (bool, error)
+	GetUserToken(ctx *gin.Context, userId string, tokenType int) (string, error)
 }

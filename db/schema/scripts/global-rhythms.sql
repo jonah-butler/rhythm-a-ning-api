@@ -1,7 +1,7 @@
 -- Rhythm tag insert
 INSERT INTO tags (name)
 VALUES
-  ("Spain")
+  ('Spain')
 ON CONFLICT (name)
 DO NOTHING;
 
@@ -108,7 +108,7 @@ VALUES
 -- Rhythm tag insert
 INSERT INTO tags (name)
 VALUES
-  ("Caribbean")
+  ('Caribbean')
 ON CONFLICT (name)
 DO NOTHING;
 
@@ -303,3 +303,43 @@ VALUES
     'A rhythm sibling and more simplified version of the tresillo. Otherwise known as the contradanza, it is a Spanish and Spanish-American version of the contradanse. In Cuba it became the first written music to be rhythmically based on an African rhythm.',
     (SELECT tag_id FROM tags WHERE name = 'Caribbean')
   )
+
+  -- Rhythm tag insert
+INSERT INTO tags (name)
+VALUES
+  ('Polyrhythm')
+ON CONFLICT (name)
+DO NOTHING;
+
+-- Habanera
+INSERT INTO rhythms
+  (
+    bpm,
+    beats,
+    subdivision,
+    state,
+    is_poly,
+    poly_beats,
+    poly_subdivision,
+    poly_state,
+    level_id,
+    name,
+    description,
+    tag_id,
+  )
+VALUES
+  (
+    110,
+    2,
+    (SELECT subdivision_id FROM subdivision_types WHERE name = 'duplet'),
+    ARRAY[1, 0, 0, 1, 1, 0, 1, 0]::SMALLINT[],
+    false,
+    2,
+    (SELECT subdivision_id FROM subdivision_types WHERE name = 'base'),
+    ARRAY[1, 1]::SMALLINT[],
+    (SELECT level_id FROM levels WHERE name = 'beginner'),
+    'Habanera',
+    'A rhythm sibling and more simplified version of the tresillo. Otherwise known as the contradanza, it is a Spanish and Spanish-American version of the contradanse. In Cuba it became the first written music to be rhythmically based on an African rhythm.',
+    (SELECT tag_id FROM tags WHERE name = 'Caribbean')
+  )
+

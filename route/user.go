@@ -2,6 +2,7 @@ package route
 
 import (
 	"rhythmapi/handler"
+	m "rhythmapi/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,5 +17,7 @@ func SetupUserRoutes(router *gin.RouterGroup, handler *handler.UserHandler) {
 		user.POST("/refresh", handler.RefreshTokens)                     // generates JWT & Refresh Token for user
 		user.POST("/reset-password", handler.ResetPassword)              // generates reset token and emails
 		user.POST("/verify-password-reset", handler.VerifyPasswordReset) // verify and complete the password reset flow
+		user.GET("/me", m.AuthorizeUser(), handler.IdentifyUser)         // validates token and returns user id and email
+		user.GET("/logout", m.AuthorizeUser(), handler.LogoutUser)
 	}
 }

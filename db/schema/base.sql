@@ -27,15 +27,6 @@ CREATE TABLE IF NOT EXISTS permissions (
 	name          TEXT NOT NULL UNIQUE
 );
 
--- =======================================
--- tags for labeling workflows/rhythms   |
--- =======================================
-CREATE TABLE IF NOT EXISTS tags (
-	tag_id      SERIAL PRIMARY KEY,
-  name        TEXT NOT NULL UNIQUE,
-	description TEXT
-);
-
 -- ===========================
 -- users table               |
 -- ===========================
@@ -47,6 +38,16 @@ CREATE TABLE IF NOT EXISTS users (
 	permission_id INT REFERENCES permissions(permission_id),
 	created_at 		TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at 		TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =======================================
+-- tags for labeling workflows/rhythms   |
+-- =======================================
+CREATE TABLE IF NOT EXISTS tags (
+	tag_id      SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL UNIQUE,
+	description TEXT,
+	user_id UUID REFERENCES users(user_id)
 );
 
 
@@ -86,6 +87,16 @@ CREATE TABLE IF NOT EXISTS workflows (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ====================
+-- workflow sections |
+-- ===================
+CREATE TABLE IF NOT EXISTS workflow_sections (
+	section_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	color VARCHAR(7), -- hex can be null
+	name VARCHAR(250) NOT NULL,
+	description TEXT
+);
+
 -- ===================================================
 -- table for rhythms stored within a workflow        |
 -- references its workflow, and rhythm               |
@@ -95,6 +106,7 @@ CREATE TABLE IF NOT EXISTS workflow_rhythms (
     workflow_rhythm_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_id        UUID NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
     rhythm_id          UUID NOT NULL REFERENCES rhythms(rhythm_id) ON DELETE CASCADE,
+		section_id         UUID REFERENCES workflow_sections(section_id) ON DELETE SET NULL,
     measures           SMALLINT NOT NULL,
     position           SMALLINT NOT NULL
 );
@@ -126,6 +138,15 @@ CREATE TABLE IF NOT EXISTS workflow_tags (
     workflow_id UUID NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
     tag_id      INT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
     PRIMARY KEY (workflow_id, tag_id)
+);
+
+-- ===================================
+-- associating rhythms with tags  |
+-- ==================================
+CREATE TABLE IF NOT EXISTS rhythm_tags (
+    rhythm_id UUID NOT NULL REFERENCES rhythms(rhythm_id) ON DELETE CASCADE,
+    tag_id    INT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    PRIMARY KEY (rhythm_id, tag_id)
 );
 
 
@@ -198,6 +219,8 @@ VALUES
   ('African Rhythms', ''),
   ('Speed Development', ''),
   ('Slow Motion', 'To speed up sometimes requires slowing down'),
-  ('Displacement', '')
+  ('Displacement', ''),
+	('Training', ''),
+	('World Rhythms', '')
 	ON CONFLICT (name)
 	DO NOTHING;

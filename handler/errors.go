@@ -21,6 +21,8 @@ var (
 	ErrLoginFailed         = errors.New("failed to login user")
 	ErrUnauthorized        = errors.New("unauthorized")
 	ErrPasswordResetFailed = errors.New("password reset failed")
+	ErrLogoutFailed        = errors.New("logout failed")
+	ErrAccountPending      = errors.New("account verification pending")
 )
 
 func respondErr(c *gin.Context, logMsg string, err error) {
@@ -51,6 +53,8 @@ func statusFor(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, ErrUnauthorized):
 		return http.StatusUnauthorized
+	case errors.Is(err, ErrAccountPending):
+		return http.StatusForbidden
 	default:
 		return http.StatusInternalServerError
 	}
