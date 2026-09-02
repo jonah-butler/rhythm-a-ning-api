@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -61,6 +62,20 @@ type UserClaims struct {
 	Email    string    `json:"email"`
 	Username string    `json:"username"`
 	UserId   uuid.UUID `json:"userId"`
+}
+
+var _ jwt.ClaimsValidator = (*UserClaims)(nil)
+
+func (u *UserClaims) Validate() error {
+	if u.UserId == uuid.Nil {
+		return errors.New("token carries no user id")
+	}
+
+	if u.Email == "" {
+		return errors.New("token carries no email")
+	}
+
+	return nil
 }
 
 type TokenType int

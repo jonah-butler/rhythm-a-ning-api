@@ -140,7 +140,7 @@ func (r *UserRepository) GetUserById(ctx *gin.Context, id string) (model.Authent
 		ctx,
 		GET_USER_BY_ID,
 		id,
-	).Scan(&user.UserId, &user.Username, &user.Email, &user.Password)
+	).Scan(&user.UserId, &user.Username, &user.Email, &user.Password, &user.AccountPending)
 	if err != nil {
 		return user, err
 	}

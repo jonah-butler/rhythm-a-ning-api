@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"rhythmapi/auth"
 	"rhythmapi/aws/ses"
 	"rhythmapi/model"
 	"time"
@@ -198,19 +199,19 @@ func (u *UserHandler) AuthenticateUser(c *gin.Context) {
 		return
 	}
 
-	claims, jwt, err := generateAccessClaims(user)
+	claims, accessToken, err := auth.GenerateAccessClaims(user)
 	if err != nil {
-		respondErr(c, "failed to generateAccessClaims", ErrLoginFailed)
+		respondErr(c, "failed to generate access token", ErrLoginFailed)
 		return
 	}
 
-	refreshClaims, refreshToken, err := generateRefreshClaims(claims)
+	refreshClaims, refreshToken, err := auth.GenerateRefreshClaims(claims)
 	if err != nil || refreshClaims == nil {
 		respondErr(c, "failed to generate refresh token", ErrLoginFailed)
 		return
 	}
 
-	hashedRefreshToken := hashToken(refreshToken)
+	hashedRefreshToken := auth.HashToken(refreshToken)
 
 	didInsert, err := u.repo.InsertRefreshToken(c, hashedRefreshToken, refreshClaims)
 	if err != nil || !didInsert {
@@ -221,18 +222,18 @@ func (u *UserHandler) AuthenticateUser(c *gin.Context) {
 	jwtTTL := int64(time.Until(claims.ExpiresAt.Time).Seconds())
 	refreshTTL := int64(time.Until(refreshClaims.ExpiresAt.Time).Seconds())
 
-	setAuthCookies(c, jwt, jwtTTL, refreshToken, refreshTTL)
+	auth.SetCookies(c, accessToken, jwtTTL, refreshToken, refreshTTL)
 
 	respondSuccessContent(c, fmt.Sprintf("authenticated user: %d", user.UserId), gin.H{"success": true})
 }
 
 func (u *UserHandler) RefreshTokens(c *gin.Context) {
-	token, err := c.Cookie(JWT)
-	if err != nil && errors.Is(err, http.ErrNoCookie) {
+	token, err := auth.AccessCookie(c)
+	if err != nil {
 		fmt.Println("no jwt cookie found")
 	} else {
 		jwtClaims := new(model.UserClaims)
-		err = ValidateToken(token, jwtClaims)
+		_, err = auth.ValidateToken(token, jwtClaims)
 
 		if err == nil {
 			// JWT is still valid — no refresh needed
@@ -242,55 +243,76 @@ func (u *UserHandler) RefreshTokens(c *gin.Context) {
 
 		if !errors.Is(err, jwt.ErrTokenExpired) {
 			// Invalid token for a reason other than expiry (tampered, wrong signature, etc.)
+			auth.ClearCookies(c)
 			respondErr(c, "invalid jwt: "+err.Error(), ErrUnauthorized)
 			return
 		}
 	}
 
-	refreshToken, err := c.Cookie(REFRESH)
+	refreshToken, err := auth.RefreshCookie(c)
 	if err != nil {
+		auth.ClearCookies(c)
 		respondErr(c, "missing refresh cookie", ErrUnauthorized)
 		return
 	}
 
 	refreshClaims := new(jwt.RegisteredClaims)
-	if err = ValidateToken(refreshToken, refreshClaims); err != nil {
+	if _, err = auth.ValidateToken(refreshToken, refreshClaims); err != nil {
+		auth.ClearCookies(c)
 		respondErr(c, "invalid refresh token: "+err.Error(), ErrUnauthorized)
 		return
 	}
 
-	hash := hashToken(refreshToken)
+	hash := auth.HashToken(refreshToken)
 
 	user, err := u.repo.GetUserByHash(c, hash, model.RefreshToken)
 	if err != nil {
+		auth.ClearCookies(c)
 		respondErr(c, "failed to get user by refresh hash: "+err.Error(), ErrUnauthorized)
 		return
 	}
 
 	if user.ExpiresAt.Before(time.Now()) {
+		auth.ClearCookies(c)
 		respondErr(c, "refresh token expired", ErrUnauthorized)
+		return
+	}
+
+	// The stored hash is authoritative, but the token's own subject must agree
+	// with it — a mismatch means the two disagree about who is being refreshed.
+	if refreshClaims.Subject != user.UserId.String() {
+		auth.ClearCookies(c)
+		respondErr(c, "refresh token subject does not match stored token owner", ErrUnauthorized)
 		return
 	}
 
 	authenticatedUser, err := u.repo.GetUserById(c, user.UserId.String())
 	if err != nil {
+		auth.ClearCookies(c)
 		respondErr(c, "failed to get user by id: "+err.Error(), ErrUnauthorized)
 		return
 	}
 
-	freshClaims, freshJwt, err := generateAccessClaims(authenticatedUser)
+	// Re-read authorization state rather than trusting what was true at login.
+	if authenticatedUser.AccountPending {
+		auth.ClearCookies(c)
+		respondErr(c, "account verification pending", ErrAccountPending)
+		return
+	}
+
+	freshClaims, freshJwt, err := auth.GenerateAccessClaims(authenticatedUser)
 	if err != nil {
 		respondErr(c, "failed to generate access token", ErrLoginFailed)
 		return
 	}
 
-	freshRefreshClaims, freshRefreshToken, err := generateRefreshClaims(freshClaims)
+	freshRefreshClaims, freshRefreshToken, err := auth.GenerateRefreshClaims(freshClaims)
 	if err != nil {
 		respondErr(c, "failed to generate refresh token", ErrLoginFailed)
 		return
 	}
 
-	hashedRefresh := hashToken(freshRefreshToken)
+	hashedRefresh := auth.HashToken(freshRefreshToken)
 
 	didInsert, err := u.repo.InsertRefreshToken(c, hashedRefresh, freshRefreshClaims)
 	if err != nil || !didInsert {
@@ -301,7 +323,7 @@ func (u *UserHandler) RefreshTokens(c *gin.Context) {
 	jwtTTL := int64(time.Until(freshClaims.ExpiresAt.Time).Seconds())
 	refreshTTL := int64(time.Until(freshRefreshClaims.ExpiresAt.Time).Seconds())
 
-	setAuthCookies(c, freshJwt, jwtTTL, freshRefreshToken, refreshTTL)
+	auth.SetCookies(c, freshJwt, jwtTTL, freshRefreshToken, refreshTTL)
 
 	respondSuccessContent(c, "tokens refreshed", gin.H{
 		"userId": authenticatedUser.UserId,
@@ -427,7 +449,7 @@ func (u *UserHandler) LogoutUser(c *gin.Context) {
 		return
 	}
 
-	setAuthCookies(c, "", -1, "", -1)
+	auth.ClearCookies(c)
 
 	responseSuccessNoContent(c, "successfully logged out user")
 }

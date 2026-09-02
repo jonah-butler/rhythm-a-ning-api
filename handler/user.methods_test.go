@@ -20,8 +20,3 @@ func TestComputeHash(t *testing.T) {
 	hash := computeHash(token)
 	fmt.Println(hash)
 }
-
-func TestHashToken(t *testing.T) {
-	hashedtoken := hashToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzk3NjQ2MjcsImlhdCI6MTc3ODU1NTAyNywiaXNzIjoicmh5dGhtYW5pbmctYXBpIiwic3ViIjoiMTQifQ.i-1oJ_4q6OZBoa38-_u1KMatAoa2TpnN1FsNP9d2ofM")
-	fmt.Println(hashedtoken)
-}
