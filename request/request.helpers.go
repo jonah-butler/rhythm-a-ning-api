@@ -2,6 +2,7 @@ package request
 
 import (
 	"errors"
+	"fmt"
 	"rhythmapi/middlewares"
 	"rhythmapi/model"
 
@@ -28,10 +29,53 @@ func ValidatePolyRhythm(rhythm model.RhythmInputPoly) (isValid bool) {
 
 	if rhythm.RhythmType == model.Polyrhythm {
 		// must contain valid poly fields
-		if rhythm.PolyBeats == nil || len(rhythm.PolyState) == 0 || rhythm.PolySubdivision == nil {
+		if rhythm.PolyBeats == nil || len(rhythm.PolyState) == 0 || rhythm.PolySubdivision == nil || rhythm.PolySubdivisions == nil {
 			isValid = false
 		}
 	}
 
 	return
+}
+
+// ValidateSubdivisions ensures there is exactly one known subdivision per beat
+func ValidateSubdivisions(beats int, subdivisions model.Subdivisions) error {
+	if len(subdivisions) != beats {
+		return fmt.Errorf("expected %d subdivisions (one per beat), got %d", beats, len(subdivisions))
+	}
+
+	for i, sub := range subdivisions {
+		if !sub.IsValid() {
+			return fmt.Errorf("invalid subdivision %q at beat %d", sub, i)
+		}
+	}
+
+	return nil
+}
+
+func ValidateMonoRhythm(rhythm model.RhythmInputMono) error {
+	if err := ValidateSubdivisions(rhythm.Beats, rhythm.Subdivisions); err != nil {
+		return fmt.Errorf("subdivisions: %w", err)
+	}
+
+	return nil
+}
+
+func ValidateRhythm(rhythm model.RhythmInputPoly) error {
+	if err := ValidateMonoRhythm(rhythm.RhythmInputMono); err != nil {
+		return err
+	}
+
+	if rhythm.RhythmType != model.Polyrhythm {
+		return nil
+	}
+
+	if !ValidatePolyRhythm(rhythm) {
+		return errors.New("poly rhythms must contain associated poly fields")
+	}
+
+	if err := ValidateSubdivisions(*rhythm.PolyBeats, rhythm.PolySubdivisions); err != nil {
+		return fmt.Errorf("polySubdivisions: %w", err)
+	}
+
+	return nil
 }

@@ -75,10 +75,9 @@ func (r *RhythmHandler) UpdateRhythmById(ctx *gin.Context) {
 		return
 	}
 
-	isValid := request.ValidatePolyRhythm(rhythmToUpdate)
-	if !isValid {
-		log := "poly rhythms must contain associated poly fields"
-		respondErr(ctx, log, rhythm.ErrUpdateRhythmById)
+	if err := request.ValidateRhythm(rhythmToUpdate); err != nil {
+		log := fmt.Sprintf("invalid rhythm update %v: %v", parsedId.String(), err.Error())
+		respondBadRequest(ctx, log, err.Error())
 		return
 	}
 
@@ -169,6 +168,11 @@ func (r *RhythmHandler) CreateRhtyhm(ctx *gin.Context) {
 			return
 		}
 
+		if err := request.ValidateMonoRhythm(input); err != nil {
+			respondBadRequest(ctx, "invalid mono rhythm: "+err.Error(), err.Error())
+			return
+		}
+
 		r, err := r.repo.CreateMonoRhythm(ctx, input)
 		if err != nil {
 			respondErr(ctx, err.Error(), rhythm.ErrRhythmCreateError)
@@ -183,6 +187,11 @@ func (r *RhythmHandler) CreateRhtyhm(ctx *gin.Context) {
 
 		if err := ctx.ShouldBindBodyWith(&input, binding.JSON); err != nil {
 			respondErr(ctx, "failed to parse poly rhythm"+err.Error(), rhythm.ErrRhythmCreateError)
+			return
+		}
+
+		if err := request.ValidateRhythm(input); err != nil {
+			respondBadRequest(ctx, "invalid poly rhythm: "+err.Error(), err.Error())
 			return
 		}
 

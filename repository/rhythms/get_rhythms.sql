@@ -16,6 +16,8 @@
     r.poly_sounds,
     r.created_at,
     r.updated_at,
+    r.subdivisions,
+    r.poly_subdivisions,
     COUNT(*) OVER() as total
 FROM rhythms r
 JOIN subdivision_types st ON st.subdivision_id = r.subdivision

@@ -50,6 +50,8 @@ func (r *RhythmRepository) GetRhythmById(ctx *gin.Context, id uuid.UUID) (model.
 		&rhythm.UpdatedAt,
 		&rhythm.Sounds,
 		&rhythm.PolySounds,
+		&rhythm.Subdivisions,
+		&rhythm.PolySubdivisions,
 	)
 	if err != nil {
 		return rhythm, err
@@ -129,6 +131,8 @@ func (r *RhythmRepository) GetRhythms(ctx *gin.Context, rhythmsRequest model.Get
 			&rhythm.PolySounds,
 			&rhythm.CreatedAt,
 			&rhythm.UpdatedAt,
+			&rhythm.Subdivisions,
+			&rhythm.PolySubdivisions,
 			&total,
 		)
 		if err != nil {
@@ -158,6 +162,7 @@ func (r *RhythmRepository) UpdateRhythmById(ctx *gin.Context, rhythmId uuid.UUID
 		update.PolyState = nil
 		update.PolyBeats = nil
 		update.PolySubdivision = nil
+		update.PolySubdivisions = nil
 	}
 
 	err = r.db.QueryRowContext(
@@ -178,6 +183,8 @@ func (r *RhythmRepository) UpdateRhythmById(ctx *gin.Context, rhythmId uuid.UUID
 		update.PolySounds,
 		rhythmId,
 		userId,
+		update.Subdivisions,
+		update.PolySubdivisions,
 	).Scan(
 		&rhythm.Id,
 		&rhythm.Bpm,
@@ -196,6 +203,8 @@ func (r *RhythmRepository) UpdateRhythmById(ctx *gin.Context, rhythmId uuid.UUID
 		&rhythm.PolySounds,
 		&rhythm.CreatedAt,
 		&rhythm.UpdatedAt,
+		&rhythm.Subdivisions,
+		&rhythm.PolySubdivisions,
 	)
 	if err != nil {
 		return rhythm, err
@@ -281,6 +290,8 @@ func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.Rhyth
 		rhythm.Description,
 		rhythm.Level,
 		rhythm.Sounds,
+		rhythm.Subdivisions,
+		nil,
 	).Scan(
 		&inserted.Id,
 		&inserted.Bpm,
@@ -299,6 +310,8 @@ func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.Rhyth
 		&inserted.Description,
 		&inserted.Level,
 		&inserted.Sounds,
+		&inserted.Subdivisions,
+		&inserted.PolySubdivisions,
 	)
 	if err != nil {
 		return inserted, err
@@ -335,13 +348,15 @@ func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.Rhyth
 		true,
 		rhythm.PolyBeats,
 		&rhythm.PolySubdivision,
-		rhythm.PolyState,
+		pq.Array(rhythm.PolyState),
 		rhythm.PolySounds,
 		userId,
 		rhythm.Name,
 		rhythm.Description,
 		rhythm.Level,
 		rhythm.Sounds,
+		rhythm.Subdivisions,
+		rhythm.PolySubdivisions,
 	).Scan(
 		&inserted.Id,
 		&inserted.Bpm,
@@ -360,6 +375,8 @@ func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.Rhyth
 		&inserted.Description,
 		&inserted.Level,
 		&inserted.Sounds,
+		&inserted.Subdivisions,
+		&inserted.PolySubdivisions,
 	)
 	if err != nil {
 		return inserted, err

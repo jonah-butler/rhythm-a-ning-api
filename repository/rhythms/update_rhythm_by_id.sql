@@ -14,6 +14,8 @@ WITH updated AS (
     description      = $11,
     sounds           = $12,
     poly_sounds      = $13,
+    subdivisions      = $16,
+    poly_subdivisions = $17,
     updated_at       = NOW()
   WHERE rhythm_id = $14
   AND user_id     = $15
@@ -36,7 +38,9 @@ SELECT
   updated.sounds,
   updated.poly_sounds,
   updated.created_at,
-  updated.updated_at
+  updated.updated_at,
+  updated.subdivisions,
+  updated.poly_subdivisions
 FROM updated
 JOIN subdivision_types st ON st.subdivision_id = updated.subdivision
 LEFT JOIN subdivision_types pst ON pst.subdivision_id = updated.poly_subdivision

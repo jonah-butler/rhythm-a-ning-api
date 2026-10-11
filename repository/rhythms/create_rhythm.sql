@@ -13,7 +13,9 @@ WITH inserted AS (
     name,
     description,
     level_id,
-    sounds
+    sounds,
+    subdivisions,
+    poly_subdivisions
   )
   VALUES (
     $1, -- bpm
@@ -29,7 +31,9 @@ WITH inserted AS (
     $11, -- name
     $12, -- description
     (SELECT level_id FROM levels WHERE name = $13), -- level
-    $14 -- sounds
+    $14, -- sounds
+    $15, -- subdivisions
+    $16 -- poly subdivisions
   )
   RETURNING *
 )
@@ -50,7 +54,9 @@ SELECT
   inserted.name,
   inserted.description,
   l.name as level,
-  inserted.sounds
+  inserted.sounds,
+  inserted.subdivisions,
+  inserted.poly_subdivisions
 FROM inserted
 JOIN subdivision_types st ON st.subdivision_id = inserted.subdivision
 LEFT JOIN subdivision_types pst ON pst.subdivision_id = inserted.poly_subdivision

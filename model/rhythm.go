@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type SubdivisionType struct {
@@ -33,6 +34,50 @@ const (
 	NONUPLET   SubdivisionTypes = "nonuplet"
 	DECUPLET   SubdivisionTypes = "decuplet"
 )
+
+var validSubdivisions = map[SubdivisionTypes]struct{}{
+	BASE: {}, DUPLET: {}, TRIPLET: {}, QUADRUPLET: {}, QUINTUPLET: {},
+	SEXTUPLET: {}, SEPTUPLET: {}, OCTUPLET: {}, NONUPLET: {}, DECUPLET: {},
+}
+
+func (s SubdivisionTypes) IsValid() bool {
+	_, ok := validSubdivisions[s]
+	return ok
+}
+
+// Subdivisions holds one subdivision per beat, stored as TEXT[]
+type Subdivisions []SubdivisionTypes
+
+func (s Subdivisions) Value() (driver.Value, error) {
+	if s == nil {
+		return nil, nil
+	}
+
+	arr := make(pq.StringArray, len(s))
+	for i, sub := range s {
+		arr[i] = string(sub)
+	}
+	return arr.Value()
+}
+
+func (s *Subdivisions) Scan(value any) error {
+	var arr pq.StringArray
+	if err := arr.Scan(value); err != nil {
+		return err
+	}
+
+	if arr == nil {
+		*s = nil
+		return nil
+	}
+
+	subs := make(Subdivisions, len(arr))
+	for i, sub := range arr {
+		subs[i] = SubdivisionTypes(sub)
+	}
+	*s = subs
+	return nil
+}
 
 type RhythmType int
 
@@ -66,23 +111,25 @@ func (j *JSONBSounds) Scan(value any) error {
 
 type RhythmInputMono struct {
 	RhythmDiscriminator
-	Bpm         int              `json:"bpm" binding:"required"`
-	Beats       int              `json:"beats" binding:"required"`
-	Measures    int              `json:"measures" binding:"required"`
-	Sounds      JSONBSounds      `json:"sounds"`
-	Subdivision SubdivisionTypes `json:"subdivision" binding:"required"`
-	State       []int64          `json:"state" binding:"required"`
-	Name        string           `json:"name" binding:"required"`
-	Level       *string          `json:"level"`
-	Description string           `json:"description"`
+	Bpm          int              `json:"bpm" binding:"required"`
+	Beats        int              `json:"beats" binding:"required"`
+	Measures     int              `json:"measures" binding:"required"`
+	Sounds       JSONBSounds      `json:"sounds"`
+	Subdivision  SubdivisionTypes `json:"subdivision" binding:"required"`
+	Subdivisions Subdivisions     `json:"subdivisions" binding:"required"`
+	State        []int64          `json:"state" binding:"required"`
+	Name         string           `json:"name" binding:"required"`
+	Level        *string          `json:"level"`
+	Description  string           `json:"description"`
 }
 
 type RhythmInputPoly struct {
 	RhythmInputMono
-	PolyBeats       *int              `json:"polyBeats"`
-	PolyState       []int64           `json:"polyState"`
-	PolySounds      JSONBSounds       `json:"polySounds"`
-	PolySubdivision *SubdivisionTypes `json:"polySubdivision"`
+	PolyBeats        *int              `json:"polyBeats"`
+	PolyState        []int64           `json:"polyState"`
+	PolySounds       JSONBSounds       `json:"polySounds"`
+	PolySubdivision  *SubdivisionTypes `json:"polySubdivision"`
+	PolySubdivisions Subdivisions      `json:"polySubdivisions"`
 }
 
 type CreateTagInput struct {

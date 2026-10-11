@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS rhythms (
 	poly_subdivision INT REFERENCES subdivision_types(subdivision_id), -- can be NULL
 	poly_state       SMALLINT[],
 	poly_sounds      JSONB, -- 
+	subdivisions      TEXT[], -- one subdivision_types.name per beat
+	poly_subdivisions TEXT[], -- one subdivision_types.name per poly beat, NULL for mono
 	user_id          UUID REFERENCES users(user_id), -- NULL is global
 	level_id 				 INT REFERENCES levels(level_id),
 	name 						 VARCHAR(250) NOT NULL,
@@ -160,6 +162,25 @@ ALTER TABLE user_tokens
 	DROP CONSTRAINT IF EXISTS user_tokens_user_id_type_unique;
 ALTER TABLE user_tokens
 	ADD CONSTRAINT user_tokens_user_id_type_unique UNIQUE (user_id, type);
+
+ALTER TABLE rhythms
+	ADD COLUMN IF NOT EXISTS subdivisions TEXT[],
+	ADD COLUMN IF NOT EXISTS poly_subdivisions TEXT[];
+
+-- backfill per-beat subdivisions for rhythms created before they existed
+UPDATE rhythms r
+SET subdivisions = array_fill(st.name, ARRAY[r.beats::INT])::TEXT[]
+FROM subdivision_types st
+WHERE st.subdivision_id = r.subdivision
+AND r.subdivisions IS NULL;
+
+UPDATE rhythms r
+SET poly_subdivisions = array_fill(st.name, ARRAY[r.poly_beats::INT])::TEXT[]
+FROM subdivision_types st
+WHERE st.subdivision_id = r.poly_subdivision
+AND r.is_poly
+AND r.poly_beats IS NOT NULL
+AND r.poly_subdivisions IS NULL;
 
 -- ----------------------
 -- DEFAULT INSERTIONS      
