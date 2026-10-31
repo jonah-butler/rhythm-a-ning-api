@@ -36,3 +36,8 @@ type IUserRepository interface {
 	DeleteUserToken(ctx *gin.Context, userId string, tokenType int, token string) (bool, error)
 	GetUserToken(ctx *gin.Context, userId string, tokenType int) (string, error)
 }
+
+type IWorkflowRepository interface {
+	CreateWorkflow(ctx *gin.Context, workflow model.CreateWorkflowPayload)
+	// CreateSection(ctx *gin.Context, section []model.CreateSectionPayload) ([]model.WorkflowSection, error)
+}

@@ -70,3 +70,14 @@ var DELETE_USER_TOKEN string
 
 //go:embed users/get_user_token.sql
 var GET_USER_TOKEN string
+
+// WORKFLOW QUERIES
+//
+//go:embed workflow/create_sections.sql
+var CREATE_SECTIONS string
+
+//go:embed workflow/create_workflow.sql
+var CREATE_WORKFLOW string
+
+//go:embed workflow/create_workflow_rhythms.sql
+var CREATE_WORKFLOW_RHYTHMS string

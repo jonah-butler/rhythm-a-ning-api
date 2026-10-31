@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -142,8 +141,7 @@ type Rhythm struct {
 	Id              uuid.UUID `json:"id"`
 	IsPoly          bool      `json:"isPoly"`
 	UserId          uuid.UUID `json:"userId"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	TimeStampContract
 }
 
 type GetRhythmsRequest struct {

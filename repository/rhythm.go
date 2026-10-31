@@ -1,8 +1,8 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
 	"rhythmapi/model"
 	"rhythmapi/request"
 
@@ -13,6 +13,10 @@ import (
 
 type RhythmRepository struct {
 	db *sql.DB
+}
+
+type querier interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 func NewRhythmRepository(db *sql.DB) IRhythmRepository {
@@ -265,17 +269,11 @@ func (r *RhythmRepository) GetRhythmLevels(ctx *gin.Context) ([]model.RhythmLeve
 	return rhythmLevels, nil
 }
 
-func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.RhythmInputMono) (model.Rhythm, error) {
+// insertRhythm runs CREATE_RHYTHM on q, which can be r.db or a transaction
+func insertRhythm(ctx context.Context, q querier, userId *uuid.UUID, rhythm model.RhythmInputPoly, isPoly bool) (model.Rhythm, error) {
 	var inserted model.Rhythm
 
-	userId, err := request.GetUserFromContext(ctx)
-	if err != nil {
-		return inserted, err
-	}
-
-	err = r.db.QueryRowContext(
-		ctx,
-		CREATE_RHYTHM,
+	args := []any{
 		rhythm.Bpm,
 		rhythm.Beats,
 		rhythm.Subdivision,
@@ -292,7 +290,17 @@ func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.Rhyth
 		rhythm.Sounds,
 		rhythm.Subdivisions,
 		nil,
-	).Scan(
+	}
+	if isPoly {
+		args[4] = true
+		args[5] = rhythm.PolyBeats
+		args[6] = &rhythm.PolySubdivision
+		args[7] = pq.Array(rhythm.PolyState)
+		args[8] = rhythm.PolySounds
+		args[15] = rhythm.PolySubdivisions
+	}
+
+	err := q.QueryRowContext(ctx, CREATE_RHYTHM, args...).Scan(
 		&inserted.Id,
 		&inserted.Bpm,
 		&inserted.Beats,
@@ -317,76 +325,155 @@ func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.Rhyth
 		return inserted, err
 	}
 
-	inserted.RhythmType = model.Monorhythm
+	if isPoly {
+		inserted.RhythmType = model.Polyrhythm
+	} else {
+		inserted.RhythmType = model.Monorhythm
+	}
 
 	return inserted, nil
+}
+
+func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.RhythmInputMono) (model.Rhythm, error) {
+	userId, err := request.GetUserFromContext(ctx)
+	if err != nil {
+		return model.Rhythm{}, err
+	}
+
+	return insertRhythm(ctx, r.db, userId, model.RhythmInputPoly{RhythmInputMono: rhythm}, false)
 }
 
 func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.RhythmInputPoly) (model.Rhythm, error) {
-	var inserted model.Rhythm
-
 	userId, err := request.GetUserFromContext(ctx)
 	if err != nil {
-		return inserted, err
+		return model.Rhythm{}, err
 	}
 
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return inserted, err
-	}
-	defer tx.Rollback()
-
-	fmt.Println(rhythm.Subdivision, &rhythm.PolySubdivision)
-
-	err = tx.QueryRowContext(
-		ctx,
-		CREATE_RHYTHM,
-		rhythm.Bpm,
-		rhythm.Beats,
-		rhythm.Subdivision,
-		pq.Array(rhythm.State),
-		true,
-		rhythm.PolyBeats,
-		&rhythm.PolySubdivision,
-		pq.Array(rhythm.PolyState),
-		rhythm.PolySounds,
-		userId,
-		rhythm.Name,
-		rhythm.Description,
-		rhythm.Level,
-		rhythm.Sounds,
-		rhythm.Subdivisions,
-		rhythm.PolySubdivisions,
-	).Scan(
-		&inserted.Id,
-		&inserted.Bpm,
-		&inserted.Beats,
-		&inserted.Subdivision,
-		pq.Array(&inserted.State),
-		&inserted.IsPoly,
-		&inserted.PolyBeats,
-		&inserted.PolySubdivision,
-		pq.Array(&inserted.PolyState),
-		&inserted.PolySounds,
-		&inserted.UserId,
-		&inserted.CreatedAt,
-		&inserted.UpdatedAt,
-		&inserted.Name,
-		&inserted.Description,
-		&inserted.Level,
-		&inserted.Sounds,
-		&inserted.Subdivisions,
-		&inserted.PolySubdivisions,
-	)
-	if err != nil {
-		return inserted, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return inserted, err
-	}
-
-	inserted.RhythmType = model.Polyrhythm
-
-	return inserted, nil
+	return insertRhythm(ctx, r.db, userId, rhythm, true)
 }
+
+// func (r *RhythmRepository) CreateMonoRhythm(ctx *gin.Context, rhythm model.RhythmInputMono) (model.Rhythm, error) {
+// 	var inserted model.Rhythm
+
+// 	userId, err := request.GetUserFromContext(ctx)
+// 	if err != nil {
+// 		return inserted, err
+// 	}
+
+// 	err = r.db.QueryRowContext(
+// 		ctx,
+// 		CREATE_RHYTHM,
+// 		rhythm.Bpm,
+// 		rhythm.Beats,
+// 		rhythm.Subdivision,
+// 		pq.Array(rhythm.State),
+// 		false,
+// 		nil,
+// 		nil,
+// 		nil,
+// 		nil,
+// 		userId,
+// 		rhythm.Name,
+// 		rhythm.Description,
+// 		rhythm.Level,
+// 		rhythm.Sounds,
+// 		rhythm.Subdivisions,
+// 		nil,
+// 	).Scan(
+// 		&inserted.Id,
+// 		&inserted.Bpm,
+// 		&inserted.Beats,
+// 		&inserted.Subdivision,
+// 		pq.Array(&inserted.State),
+// 		&inserted.IsPoly,
+// 		&inserted.PolyBeats,
+// 		&inserted.PolySubdivision,
+// 		pq.Array(&inserted.PolyState),
+// 		&inserted.PolySounds,
+// 		&inserted.UserId,
+// 		&inserted.CreatedAt,
+// 		&inserted.UpdatedAt,
+// 		&inserted.Name,
+// 		&inserted.Description,
+// 		&inserted.Level,
+// 		&inserted.Sounds,
+// 		&inserted.Subdivisions,
+// 		&inserted.PolySubdivisions,
+// 	)
+// 	if err != nil {
+// 		return inserted, err
+// 	}
+
+// 	inserted.RhythmType = model.Monorhythm
+
+// 	return inserted, nil
+// }
+
+// func (r *RhythmRepository) CreatePolyRhythm(ctx *gin.Context, rhythm model.RhythmInputPoly) (model.Rhythm, error) {
+// 	var inserted model.Rhythm
+
+// 	userId, err := request.GetUserFromContext(ctx)
+// 	if err != nil {
+// 		return inserted, err
+// 	}
+
+// 	tx, err := r.db.BeginTx(ctx, nil)
+// 	if err != nil {
+// 		return inserted, err
+// 	}
+// 	defer tx.Rollback()
+
+// 	fmt.Println(rhythm.Subdivision, &rhythm.PolySubdivision)
+
+// 	err = tx.QueryRowContext(
+// 		ctx,
+// 		CREATE_RHYTHM,
+// 		rhythm.Bpm,
+// 		rhythm.Beats,
+// 		rhythm.Subdivision,
+// 		pq.Array(rhythm.State),
+// 		true,
+// 		rhythm.PolyBeats,
+// 		&rhythm.PolySubdivision,
+// 		pq.Array(rhythm.PolyState),
+// 		rhythm.PolySounds,
+// 		userId,
+// 		rhythm.Name,
+// 		rhythm.Description,
+// 		rhythm.Level,
+// 		rhythm.Sounds,
+// 		rhythm.Subdivisions,
+// 		rhythm.PolySubdivisions,
+// 	).Scan(
+// 		&inserted.Id,
+// 		&inserted.Bpm,
+// 		&inserted.Beats,
+// 		&inserted.Subdivision,
+// 		pq.Array(&inserted.State),
+// 		&inserted.IsPoly,
+// 		&inserted.PolyBeats,
+// 		&inserted.PolySubdivision,
+// 		pq.Array(&inserted.PolyState),
+// 		&inserted.PolySounds,
+// 		&inserted.UserId,
+// 		&inserted.CreatedAt,
+// 		&inserted.UpdatedAt,
+// 		&inserted.Name,
+// 		&inserted.Description,
+// 		&inserted.Level,
+// 		&inserted.Sounds,
+// 		&inserted.Subdivisions,
+// 		&inserted.PolySubdivisions,
+// 	)
+// 	if err != nil {
+// 		return inserted, err
+// 	}
+
+// 	if err := tx.Commit(); err != nil {
+// 		return inserted, err
+// 	}
+
+// 	inserted.RhythmType = model.Polyrhythm
+
+// 	return inserted, nil
+// }
