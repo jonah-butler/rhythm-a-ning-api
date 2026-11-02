@@ -38,6 +38,5 @@ type IUserRepository interface {
 }
 
 type IWorkflowRepository interface {
-	CreateWorkflow(ctx *gin.Context, workflow model.CreateWorkflowPayload)
-	// CreateSection(ctx *gin.Context, section []model.CreateSectionPayload) ([]model.WorkflowSection, error)
+	CreateWorkflow(ctx *gin.Context, workflow model.CreateWorkflowPayload) (model.Workflow, error)
 }

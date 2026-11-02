@@ -2,6 +2,8 @@ package model
 
 import "github.com/google/uuid"
 
+const MaxWorkflowSections = 40
+
 type CreateWorkflowRhythmInput struct {
 	RhythmInputPoly            // all the rhythm fields, including Measures
 	Section         *uuid.UUID `json:"section"` // nil if not in a section
@@ -9,11 +11,10 @@ type CreateWorkflowRhythmInput struct {
 
 // Create Payloads
 type CreateSectionPayload struct {
-	WorkflowId  uuid.UUID `json:"workflowId"`
 	Color       string    `json:"color"` // hex value
-	Name        string    `json:"name"`
+	Name        string    `json:"name" binding:"required"`
 	Description *string   `json:"description"`
-	SectionId   uuid.UUID `json:"sectionId"` // local state uuid
+	SectionId   uuid.UUID `json:"sectionId" binding:"required"` // client generated, stored as section_id
 }
 
 type WorkflowRhythm struct {
@@ -23,15 +24,28 @@ type WorkflowRhythm struct {
 }
 
 type CreateWorkflowPayload struct {
-	Blocks      []CreateWorkflowRhythmInput `json:"blocks"`
-	Sections    *[]CreateSectionPayload     `json:"sections"`
-	Name        string                      `json:"name"`
+	Blocks      []CreateWorkflowRhythmInput `json:"blocks" binding:"dive"`
+	Sections    *[]CreateSectionPayload     `json:"sections" binding:"omitempty,dive"`
+	Name        string                      `json:"name" binding:"required"`
 	Description *string                     `json:"description"`
 }
 
 // Create Responses
 type WorkflowSection struct {
-	SectionId uuid.UUID `json:"sectionId"`
-	CreateSectionPayload
+	SectionId   uuid.UUID `json:"sectionId"`
+	WorkflowId  uuid.UUID `json:"workflowId"`
+	Color       string    `json:"color"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	TimeStampContract
+}
+
+type Workflow struct {
+	WorkflowId  uuid.UUID         `json:"workflowId"`
+	UserId      uuid.UUID         `json:"userId"`
+	Name        string            `json:"name"`
+	Description *string           `json:"description"`
+	Rhythms     []Rhythm          `json:"rhythms"`
+	Sections    []WorkflowSection `json:"sections"`
 	TimeStampContract
 }

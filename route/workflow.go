@@ -11,6 +11,5 @@ func SetupWorkflowRoutes(router *gin.RouterGroup, handler *handler.WorkflowHandl
 	workflows := router.Group("workflow")
 	{
 		workflows.POST("/", m.AuthorizeUser(), handler.CreateWorkflow)
-		workflows.POST("/section/", m.AuthorizeUser(), handler.CreateSection)
 	}
 }

@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS rhythms (
 	description 		 TEXT, -- can be null
 	tag_id           INT REFERENCES tags(tag_id),
 	created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 ); 
 
 -- =================
@@ -168,8 +168,15 @@ ALTER TABLE user_tokens
 
 ALTER TABLE rhythms
 	ADD COLUMN IF NOT EXISTS subdivisions TEXT[],
-	ADD COLUMN IF NOT EXISTS poly_subdivisions TEXT[],
-	ADD COLUMN IF NOT EXISTS 
+	ADD COLUMN IF NOT EXISTS poly_subdivisions TEXT[];
+
+ALTER TABLE workflow_sections
+	ADD COLUMN IF NOT EXISTS workflow_id UUID NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
+	ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE workflow_rhythms
+	ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES workflow_sections(section_id) ON DELETE SET NULL;
 
 -- backfill per-beat subdivisions for rhythms created before they existed
 UPDATE rhythms r
