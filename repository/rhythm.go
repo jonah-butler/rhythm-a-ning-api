@@ -150,12 +150,17 @@ func (r *RhythmRepository) GetRhythms(ctx *gin.Context, rhythmsRequest model.Get
 }
 
 func (r *RhythmRepository) UpdateRhythmById(ctx *gin.Context, rhythmId uuid.UUID, update model.RhythmInputPoly) (model.Rhythm, error) {
-	var rhythm model.Rhythm
-
 	userId, err := request.GetUserFromContext(ctx)
 	if err != nil {
-		return rhythm, err
+		return model.Rhythm{}, err
 	}
+
+	return updateRhythm(ctx, r.db, rhythmId, userId, update)
+}
+
+// updateRhythm runs UPDATE_RHYTHM_BY_ID on q, which can be r.db or a transaction
+func updateRhythm(ctx context.Context, q querier, rhythmId uuid.UUID, userId *uuid.UUID, update model.RhythmInputPoly) (model.Rhythm, error) {
+	var rhythm model.Rhythm
 
 	var isPoly bool
 	if update.RhythmType == model.Polyrhythm {
@@ -169,7 +174,7 @@ func (r *RhythmRepository) UpdateRhythmById(ctx *gin.Context, rhythmId uuid.UUID
 		update.PolySubdivisions = nil
 	}
 
-	err = r.db.QueryRowContext(
+	err := q.QueryRowContext(
 		ctx,
 		UPDATE_RHYTHM_BY_ID,
 		update.Bpm,

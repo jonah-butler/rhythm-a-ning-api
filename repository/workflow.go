@@ -15,6 +15,11 @@ import (
 var (
 	ErrUnknownSection    = errors.New("block references a section not in the payload")
 	ErrUnknownRhythmType = errors.New("unknown rhythm type")
+	ErrUnknownRhythm     = errors.New("block references a rhythm not in this workflow")
+	ErrDuplicateSection  = errors.New("section id appears more than once")
+	ErrDuplicateRhythm   = errors.New("rhythm id appears more than once")
+	ErrSectionConflict   = errors.New("section id belongs to another workflow")
+	ErrWorkflowNotFound  = errors.New("workflow not found")
 )
 
 type WorkflowRepository struct {
@@ -40,17 +45,12 @@ func (r *WorkflowRepository) CreateWorkflow(ctx *gin.Context, workflow model.Cre
 
 	// workflow.Blocks.Section MUST exclusively contain any one of the
 	// values included in workflow.Sections
-	sectionIds := make(map[uuid.UUID]struct{}, len(payloadSections))
-	for _, s := range payloadSections {
-		sectionIds[s.SectionId] = struct{}{}
+	blockSections := make([]*uuid.UUID, len(workflow.Blocks))
+	for i, block := range workflow.Blocks {
+		blockSections[i] = block.Section
 	}
-	for _, block := range workflow.Blocks {
-		if block.Section == nil {
-			continue
-		}
-		if _, ok := sectionIds[*block.Section]; !ok {
-			return created, ErrUnknownSection
-		}
+	if err := validateSections(payloadSections, blockSections); err != nil {
+		return created, err
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -96,7 +96,7 @@ func (r *WorkflowRepository) CreateWorkflow(ctx *gin.Context, workflow model.Cre
 	}
 
 	// _3 Create Sections
-	sections, err := createSections(ctx, tx, created.WorkflowId, payloadSections)
+	sections, err := saveSections(ctx, tx, CREATE_SECTIONS, created.WorkflowId, payloadSections)
 	if err != nil {
 		return created, err
 	}
@@ -117,11 +117,35 @@ func (r *WorkflowRepository) CreateWorkflow(ctx *gin.Context, workflow model.Cre
 	return created, nil
 }
 
-func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.UpdateWorkflowInput, workflowId string) (model.Workflow, error) {
+func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.UpdateWorkflowInput, workflowId uuid.UUID) (model.Workflow, error) {
 	var updated model.Workflow
 
 	userId, err := request.GetUserFromContext(ctx)
 	if err != nil {
+		return updated, err
+	}
+
+	var payloadSections []model.CreateSectionPayload
+	if workflow.Sections != nil {
+		payloadSections = *workflow.Sections // only dereference if it was sent
+	}
+
+	blockSections := make([]*uuid.UUID, len(workflow.Blocks))
+	blocks := make([]model.CreateWorkflowRhythmInput, len(workflow.Blocks))
+	blockIds := make(map[uuid.UUID]struct{}, len(workflow.Blocks))
+	for i, block := range workflow.Blocks {
+		blockSections[i] = block.Section
+		blocks[i] = block.CreateWorkflowRhythmInput
+
+		if block.Id == nil {
+			continue
+		}
+		if _, ok := blockIds[*block.Id]; ok {
+			return updated, ErrDuplicateRhythm
+		}
+		blockIds[*block.Id] = struct{}{}
+	}
+	if err := validateSections(payloadSections, blockSections); err != nil {
 		return updated, err
 	}
 
@@ -132,7 +156,7 @@ func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.Upd
 
 	defer tx.Rollback()
 
-	// _1 Update Workflow
+	// _1 Update Workflow: checks ownership and locks the row until commit
 	err = tx.QueryRowContext(
 		ctx,
 		UPDATE_WORKFLOW,
@@ -148,14 +172,142 @@ func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.Upd
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return updated, ErrWorkflowNotFound
+	}
 	if err != nil {
 		return updated, err
 	}
 
+	// _2 Read the rhythms currently in this workflow (before the links are rebuilt)
+	existingIds, err := getWorkflowRhythmIds(ctx, tx, workflowId)
+	if err != nil {
+		return updated, err
+	}
+
+	// _3 Sync Sections: upsert those sent, delete those left out
+	sections, err := saveSections(ctx, tx, UPSERT_SECTIONS, workflowId, payloadSections)
+	if err != nil {
+		return updated, err
+	}
+	if len(sections) != len(payloadSections) {
+		return updated, ErrSectionConflict
+	}
+
+	keptSectionIds := make([]uuid.UUID, len(payloadSections)) // non-nil so an empty list is {} not NULL
+	for i, s := range payloadSections {
+		keptSectionIds[i] = s.SectionId
+	}
+	_, err = tx.ExecContext(ctx, DELETE_REMOVED_SECTIONS, workflowId, pq.Array(keptSectionIds))
+	if err != nil {
+		return updated, err
+	}
+
+	// _4 Sync Rhythms: update blocks with an id, insert blocks without one
+	rhythms := make([]model.Rhythm, len(workflow.Blocks))
+	for i, block := range workflow.Blocks {
+		rhythmType := block.RhythmDiscriminator.RhythmType
+		if rhythmType != model.Monorhythm && rhythmType != model.Polyrhythm {
+			return updated, ErrUnknownRhythmType
+		}
+
+		if block.Id == nil {
+			inserted, err := insertRhythm(ctx, tx, userId, block.RhythmInputPoly, rhythmType == model.Polyrhythm)
+			if err != nil {
+				return updated, err
+			}
+
+			rhythms[i] = inserted
+			continue
+		}
+
+		if _, ok := existingIds[*block.Id]; !ok {
+			return updated, ErrUnknownRhythm
+		}
+
+		saved, err := updateRhythm(ctx, tx, *block.Id, userId, block.RhythmInputPoly)
+		if err != nil {
+			return updated, err
+		}
+
+		rhythms[i] = saved
+	}
+
+	// _5 Rebuild Workflow Rhythms: positions come from the order of blocks
+	_, err = tx.ExecContext(ctx, DELETE_WORKFLOW_RHYTHMS, workflowId)
+	if err != nil {
+		return updated, err
+	}
+
+	err = createWorkflowRhythms(ctx, tx, workflowId, blocks, rhythms)
+	if err != nil {
+		return updated, err
+	}
+
+	// _6 Delete rhythms that were removed from the workflow
+	oldIds := make([]uuid.UUID, 0, len(existingIds))
+	for id := range existingIds {
+		oldIds = append(oldIds, id)
+	}
+	_, err = tx.ExecContext(ctx, DELETE_ORPHAN_RHYTHMS, pq.Array(oldIds), userId)
+	if err != nil {
+		return updated, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return updated, err
+	}
+
+	updated.Rhythms = rhythms
+	updated.Sections = sections
+
 	return updated, nil
 }
 
-func createSections(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID, sections []model.CreateSectionPayload) ([]model.WorkflowSection, error) {
+// validateSections checks section ids are unique and that every block
+// section references one of them
+func validateSections(sections []model.CreateSectionPayload, blockSections []*uuid.UUID) error {
+	sectionIds := make(map[uuid.UUID]struct{}, len(sections))
+	for _, s := range sections {
+		if _, ok := sectionIds[s.SectionId]; ok {
+			return ErrDuplicateSection
+		}
+		sectionIds[s.SectionId] = struct{}{}
+	}
+
+	for _, section := range blockSections {
+		if section == nil {
+			continue
+		}
+		if _, ok := sectionIds[*section]; !ok {
+			return ErrUnknownSection
+		}
+	}
+
+	return nil
+}
+
+func getWorkflowRhythmIds(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	rows, err := tx.QueryContext(ctx, GET_WORKFLOW_RHYTHM_IDS, workflowId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make(map[uuid.UUID]struct{})
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids[id] = struct{}{}
+	}
+
+	return ids, rows.Err()
+}
+
+// saveSections runs CREATE_SECTIONS or UPSERT_SECTIONS and returns the saved rows
+func saveSections(ctx context.Context, tx *sql.Tx, query string, workflowId uuid.UUID, sections []model.CreateSectionPayload) ([]model.WorkflowSection, error) {
 	n := len(sections)
 	sectionIds := make([]uuid.UUID, n)
 	colors := make([]string, n)
@@ -171,7 +323,7 @@ func createSections(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID, secti
 
 	rows, err := tx.QueryContext(
 		ctx,
-		CREATE_SECTIONS,
+		query,
 		workflowId,
 		pq.Array(sectionIds),
 		pq.Array(colors),

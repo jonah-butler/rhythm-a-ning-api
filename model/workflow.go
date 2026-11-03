@@ -60,5 +60,5 @@ type UpdateWorkflowInput struct {
 	Name        string                      `json:"name" binding:"required"`
 	Description *string                     `json:"description"`
 	Blocks      []UpdateWorkflowRhythmInput `json:"blocks" binding:"dive"`
-	Sections    *[]WorkflowSection          `json:"sections" binding:"omitempty,dive"`
+	Sections    *[]CreateSectionPayload     `json:"sections" binding:"omitempty,dive"`
 }

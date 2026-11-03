@@ -24,5 +24,9 @@ JOIN subdivision_types st ON st.subdivision_id = r.subdivision
 LEFT JOIN subdivision_types pst ON pst.subdivision_id = r.poly_subdivision
 LEFT JOIN levels l ON l.level_id = r.level_id
 WHERE r.user_id = $1
+-- rhythms linked to a workflow are workflow blocks, not library rhythms
+AND NOT EXISTS (
+  SELECT 1 FROM workflow_rhythms wr WHERE wr.rhythm_id = r.rhythm_id
+)
 ORDER BY r.created_at DESC
 LIMIT 10 OFFSET 10 * $2;

@@ -8,6 +8,7 @@ import (
 	"rhythmapi/repository"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func (r *WorkflowHandler) CreateWorkflow(ctx *gin.Context) {
@@ -28,7 +29,7 @@ func (r *WorkflowHandler) CreateWorkflow(ctx *gin.Context) {
 	newWorkflow, err := r.repo.CreateWorkflow(ctx, workflowInput)
 	if err != nil {
 		log := fmt.Sprintf("failed to create workflow: %v", err.Error())
-		if errors.Is(err, repository.ErrUnknownSection) || errors.Is(err, repository.ErrUnknownRhythmType) {
+		if isInvalidWorkflowInput(err) {
 			respondBadRequest(ctx, log, err.Error())
 			return
 		}
@@ -57,13 +58,39 @@ func (r *WorkflowHandler) UpdateWorkflow(ctx *gin.Context) {
 		return
 	}
 
-	workflowId := ctx.Param("id")
-	if workflowId == "" {
-		log := fmt.Sprintf("invalid workflow id")
-		respondBadRequest(ctx, log, workflow.ErrWorkflowUpdateErr.Error())
+	workflowId, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		log := fmt.Sprintf("invalid workflow id: %v", err.Error())
+		respondBadRequest(ctx, log, "invalid workflow id")
 		return
 	}
 
 	updatedWorkflow, err := r.repo.UpdateWorkflow(ctx, updateWorkflowInput, workflowId)
+	if err != nil {
+		log := fmt.Sprintf("failed to update workflow: %v", err.Error())
+		if errors.Is(err, repository.ErrWorkflowNotFound) {
+			respondErr(ctx, log, err)
+			return
+		}
+		if isInvalidWorkflowInput(err) {
+			respondBadRequest(ctx, log, err.Error())
+			return
+		}
 
+		respondErr(ctx, log, workflow.ErrWorkflowUpdateErr)
+		return
+	}
+
+	respondSuccessContent(ctx, "update workflow successful", gin.H{
+		"workflow": updatedWorkflow,
+	})
+}
+
+func isInvalidWorkflowInput(err error) bool {
+	return errors.Is(err, repository.ErrUnknownSection) ||
+		errors.Is(err, repository.ErrUnknownRhythmType) ||
+		errors.Is(err, repository.ErrUnknownRhythm) ||
+		errors.Is(err, repository.ErrDuplicateSection) ||
+		errors.Is(err, repository.ErrDuplicateRhythm) ||
+		errors.Is(err, repository.ErrSectionConflict)
 }

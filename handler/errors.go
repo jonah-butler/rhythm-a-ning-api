@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"rhythmapi/repository"
 
 	"github.com/gin-gonic/gin"
 )
@@ -49,7 +50,7 @@ func statusFor(err error) int {
 	switch {
 	case errors.Is(err, ErrUsernameTaken), errors.Is(err, ErrEmailTaken):
 		return http.StatusConflict
-	case errors.Is(err, ErrUserNotFound):
+	case errors.Is(err, ErrUserNotFound), errors.Is(err, repository.ErrWorkflowNotFound):
 		return http.StatusNotFound
 	case errors.Is(err, ErrUnauthorized):
 		return http.StatusUnauthorized
