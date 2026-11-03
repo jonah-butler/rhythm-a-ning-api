@@ -170,6 +170,10 @@ ALTER TABLE rhythms
 	ADD COLUMN IF NOT EXISTS subdivisions TEXT[],
 	ADD COLUMN IF NOT EXISTS poly_subdivisions TEXT[];
 
+-- a rhythm belongs to at most one workflow, which lets links be upserted in place
+CREATE UNIQUE INDEX IF NOT EXISTS workflow_rhythms_workflow_id_rhythm_id_unique
+	ON workflow_rhythms (workflow_id, rhythm_id);
+
 ALTER TABLE workflow_sections
 	ADD COLUMN IF NOT EXISTS workflow_id UUID NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE,
 	ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

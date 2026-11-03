@@ -92,6 +92,7 @@ func (r *WorkflowRepository) CreateWorkflow(ctx *gin.Context, workflow model.Cre
 			return created, err
 		}
 
+		inserted.Measures = block.Measures // measures lives on workflow_rhythms, not rhythms
 		rhythms[i] = inserted
 	}
 
@@ -102,7 +103,7 @@ func (r *WorkflowRepository) CreateWorkflow(ctx *gin.Context, workflow model.Cre
 	}
 
 	// _4 Create Workflow Rhythms
-	err = createWorkflowRhythms(ctx, tx, created.WorkflowId, workflow.Blocks, rhythms)
+	err = saveWorkflowRhythms(ctx, tx, CREATE_WORKFLOW_RHYTHMS, created.WorkflowId, workflow.Blocks, rhythms)
 	if err != nil {
 		return created, err
 	}
@@ -111,7 +112,7 @@ func (r *WorkflowRepository) CreateWorkflow(ctx *gin.Context, workflow model.Cre
 		return created, err
 	}
 
-	created.Rhythms = rhythms
+	created.Rhythms = toWorkflowRhythms(workflow.Blocks, rhythms)
 	created.Sections = sections
 
 	return created, nil
@@ -217,6 +218,7 @@ func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.Upd
 				return updated, err
 			}
 
+			inserted.Measures = block.Measures
 			rhythms[i] = inserted
 			continue
 		}
@@ -230,16 +232,22 @@ func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.Upd
 			return updated, err
 		}
 
+		saved.Measures = block.Measures
 		rhythms[i] = saved
 	}
 
-	// _5 Rebuild Workflow Rhythms: positions come from the order of blocks
-	_, err = tx.ExecContext(ctx, DELETE_WORKFLOW_RHYTHMS, workflowId)
+	// _5 Sync Workflow Rhythms: delete links for removed blocks, then upsert the rest
+	// in place so each block keeps its workflow_rhythm_id
+	keptRhythmIds := make([]uuid.UUID, len(rhythms)) // non-nil so an empty list is {} not NULL
+	for i, rhythm := range rhythms {
+		keptRhythmIds[i] = rhythm.Id
+	}
+	_, err = tx.ExecContext(ctx, DELETE_REMOVED_WORKFLOW_RHYTHMS, workflowId, pq.Array(keptRhythmIds))
 	if err != nil {
 		return updated, err
 	}
 
-	err = createWorkflowRhythms(ctx, tx, workflowId, blocks, rhythms)
+	err = saveWorkflowRhythms(ctx, tx, UPSERT_WORKFLOW_RHYTHMS, workflowId, blocks, rhythms)
 	if err != nil {
 		return updated, err
 	}
@@ -258,10 +266,24 @@ func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.Upd
 		return updated, err
 	}
 
-	updated.Rhythms = rhythms
+	updated.Rhythms = toWorkflowRhythms(blocks, rhythms)
 	updated.Sections = sections
 
 	return updated, nil
+}
+
+// toWorkflowRhythms pairs each saved rhythm with its block's section and position
+func toWorkflowRhythms(blocks []model.CreateWorkflowRhythmInput, rhythms []model.Rhythm) []model.WorkflowRhythm {
+	workflowRhythms := make([]model.WorkflowRhythm, len(rhythms))
+	for i, rhythm := range rhythms {
+		workflowRhythms[i] = model.WorkflowRhythm{
+			Rhythm:   rhythm,
+			Section:  blocks[i].Section,
+			Position: i,
+		}
+	}
+
+	return workflowRhythms
 }
 
 // validateSections checks section ids are unique and that every block
@@ -357,7 +379,9 @@ func saveSections(ctx context.Context, tx *sql.Tx, query string, workflowId uuid
 	return inserted, rows.Err()
 }
 
-func createWorkflowRhythms(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID, blocks []model.CreateWorkflowRhythmInput, rhythms []model.Rhythm) error {
+// saveWorkflowRhythms runs CREATE_WORKFLOW_RHYTHMS or UPSERT_WORKFLOW_RHYTHMS,
+// using the order of blocks as each link's position
+func saveWorkflowRhythms(ctx context.Context, tx *sql.Tx, query string, workflowId uuid.UUID, blocks []model.CreateWorkflowRhythmInput, rhythms []model.Rhythm) error {
 	n := len(blocks)
 	rhythmIds := make([]uuid.UUID, n)
 	sectionIds := make([]*uuid.UUID, n)
@@ -373,7 +397,7 @@ func createWorkflowRhythms(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID
 
 	_, err := tx.ExecContext(
 		ctx,
-		CREATE_WORKFLOW_RHYTHMS,
+		query,
 		workflowId,
 		pq.Array(rhythmIds),
 		pq.Array(sectionIds),

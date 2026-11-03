@@ -94,8 +94,11 @@ var UPSERT_SECTIONS string
 //go:embed workflow/delete_removed_sections.sql
 var DELETE_REMOVED_SECTIONS string
 
-//go:embed workflow/delete_workflow_rhythms.sql
-var DELETE_WORKFLOW_RHYTHMS string
+//go:embed workflow/delete_removed_workflow_rhythms.sql
+var DELETE_REMOVED_WORKFLOW_RHYTHMS string
+
+//go:embed workflow/upsert_workflow_rhythms.sql
+var UPSERT_WORKFLOW_RHYTHMS string
 
 //go:embed workflow/delete_orphan_rhythms.sql
 var DELETE_ORPHAN_RHYTHMS string

@@ -17,10 +17,11 @@ type CreateSectionPayload struct {
 	SectionId   uuid.UUID `json:"sectionId" binding:"required"` // client generated, stored as section_id
 }
 
+// WorkflowRhythm is a rhythm plus its link data from workflow_rhythms
 type WorkflowRhythm struct {
-	Section *uuid.UUID `json:"section"`
-	Name    *string    `json:"name"`
 	Rhythm
+	Section  *uuid.UUID `json:"section"` // nil if not in a section
+	Position int        `json:"position"`
 }
 
 type CreateWorkflowPayload struct {
@@ -45,7 +46,7 @@ type Workflow struct {
 	UserId      uuid.UUID         `json:"userId"`
 	Name        string            `json:"name"`
 	Description *string           `json:"description"`
-	Rhythms     []Rhythm          `json:"rhythms"`
+	Rhythms     []WorkflowRhythm  `json:"rhythms"`
 	Sections    []WorkflowSection `json:"sections"`
 	TimeStampContract
 }
