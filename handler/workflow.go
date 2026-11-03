@@ -41,3 +41,29 @@ func (r *WorkflowHandler) CreateWorkflow(ctx *gin.Context) {
 		"workflow": newWorkflow,
 	})
 }
+
+func (r *WorkflowHandler) UpdateWorkflow(ctx *gin.Context) {
+	var updateWorkflowInput model.UpdateWorkflowInput
+
+	if err := ctx.ShouldBindBodyWithJSON(&updateWorkflowInput); err != nil {
+		log := fmt.Sprintf("failed to parse update workflow input: %v", err.Error())
+		respondBadRequest(ctx, log, workflow.ErrWorkflowUpdateErr.Error())
+		return
+	}
+
+	if updateWorkflowInput.Sections != nil && len(*updateWorkflowInput.Sections) > model.MaxWorkflowSections {
+		log := fmt.Sprintf("too many workflow sections: %d", len(*updateWorkflowInput.Sections))
+		respondBadRequest(ctx, log, fmt.Sprintf("a workflow can have at most %d sections", model.MaxWorkflowSections))
+		return
+	}
+
+	workflowId := ctx.Param("id")
+	if workflowId == "" {
+		log := fmt.Sprintf("invalid workflow id")
+		respondBadRequest(ctx, log, workflow.ErrWorkflowUpdateErr.Error())
+		return
+	}
+
+	updatedWorkflow, err := r.repo.UpdateWorkflow(ctx, updateWorkflowInput, workflowId)
+
+}

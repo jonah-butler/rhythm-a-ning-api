@@ -117,6 +117,44 @@ func (r *WorkflowRepository) CreateWorkflow(ctx *gin.Context, workflow model.Cre
 	return created, nil
 }
 
+func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.UpdateWorkflowInput, workflowId string) (model.Workflow, error) {
+	var updated model.Workflow
+
+	userId, err := request.GetUserFromContext(ctx)
+	if err != nil {
+		return updated, err
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return updated, err
+	}
+
+	defer tx.Rollback()
+
+	// _1 Update Workflow
+	err = tx.QueryRowContext(
+		ctx,
+		UPDATE_WORKFLOW,
+		workflow.Name,
+		workflow.Description,
+		workflowId,
+		userId,
+	).Scan(
+		&updated.WorkflowId,
+		&updated.UserId,
+		&updated.Name,
+		&updated.Description,
+		&updated.CreatedAt,
+		&updated.UpdatedAt,
+	)
+	if err != nil {
+		return updated, err
+	}
+
+	return updated, nil
+}
+
 func createSections(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID, sections []model.CreateSectionPayload) ([]model.WorkflowSection, error) {
 	n := len(sections)
 	sectionIds := make([]uuid.UUID, n)

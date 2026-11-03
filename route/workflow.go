@@ -11,5 +11,6 @@ func SetupWorkflowRoutes(router *gin.RouterGroup, handler *handler.WorkflowHandl
 	workflows := router.Group("workflow")
 	{
 		workflows.POST("/", m.AuthorizeUser(), handler.CreateWorkflow)
+		workflows.PUT("/:id", m.AuthorizeUser(), handler.UpdateWorkflow)
 	}
 }

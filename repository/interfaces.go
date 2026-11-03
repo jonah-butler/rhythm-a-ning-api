@@ -39,4 +39,5 @@ type IUserRepository interface {
 
 type IWorkflowRepository interface {
 	CreateWorkflow(ctx *gin.Context, workflow model.CreateWorkflowPayload) (model.Workflow, error)
+	UpdateWorkflow(ctx *gin.Context, workflow model.UpdateWorkflowInput, workflowId string) (model.Workflow, error)
 }

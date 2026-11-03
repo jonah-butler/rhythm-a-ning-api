@@ -81,3 +81,6 @@ var CREATE_WORKFLOW string
 
 //go:embed workflow/create_workflow_rhythms.sql
 var CREATE_WORKFLOW_RHYTHMS string
+
+//go:embed workflow/update_workflow.sql
+var UPDATE_WORKFLOW string

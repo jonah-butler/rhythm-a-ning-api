@@ -2,7 +2,7 @@ package model
 
 import "github.com/google/uuid"
 
-const MaxWorkflowSections = 40
+const MaxWorkflowSections = 20
 
 type CreateWorkflowRhythmInput struct {
 	RhythmInputPoly            // all the rhythm fields, including Measures
@@ -48,4 +48,17 @@ type Workflow struct {
 	Rhythms     []Rhythm          `json:"rhythms"`
 	Sections    []WorkflowSection `json:"sections"`
 	TimeStampContract
+}
+
+// Update Payloads
+type UpdateWorkflowRhythmInput struct {
+	CreateWorkflowRhythmInput
+	Id *uuid.UUID `json:"id"` // nil means a new block
+}
+
+type UpdateWorkflowInput struct {
+	Name        string                      `json:"name" binding:"required"`
+	Description *string                     `json:"description"`
+	Blocks      []UpdateWorkflowRhythmInput `json:"blocks" binding:"dive"`
+	Sections    *[]WorkflowSection          `json:"sections" binding:"omitempty,dive"`
 }
