@@ -96,13 +96,11 @@ func (r *RhythmHandler) GetRhythms(ctx *gin.Context) {
 	var rhythmRequest model.GetRhythmsRequest
 
 	offset := ctx.Query("offset")
-	if offset == "" {
-		rhythmRequest.Offset = 1
-	} else {
+	if offset != "" {
 		parsedOffset, err := strconv.Atoi(offset)
-		if err != nil {
-			log := fmt.Sprintf("invalid offset: %v", err.Error())
-			respondErr(ctx, log, rhythm.ErrGetRhythms)
+		if err != nil || parsedOffset < 0 {
+			log := fmt.Sprintf("invalid offset: %q", offset)
+			respondBadRequest(ctx, log, "invalid offset")
 			return
 		}
 

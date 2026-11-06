@@ -6,6 +6,7 @@ import (
 	"rhythmapi/handler/workflow"
 	"rhythmapi/model"
 	"rhythmapi/repository"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -93,4 +94,77 @@ func isInvalidWorkflowInput(err error) bool {
 		errors.Is(err, repository.ErrDuplicateSection) ||
 		errors.Is(err, repository.ErrDuplicateRhythm) ||
 		errors.Is(err, repository.ErrSectionConflict)
+}
+
+func (r *WorkflowHandler) GetWorkflowById(ctx *gin.Context) {
+	workflowId, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		log := fmt.Sprintf("invalid workflow id: %v", err.Error())
+		respondBadRequest(ctx, log, "invalid workflow id")
+		return
+	}
+
+	foundWorkflow, err := r.repo.GetWorkflowById(ctx, workflowId)
+	if err != nil {
+		log := fmt.Sprintf("failed to get workflow %v: %v", workflowId.String(), err.Error())
+		if errors.Is(err, repository.ErrWorkflowNotFound) {
+			respondErr(ctx, log, err)
+			return
+		}
+
+		respondErr(ctx, log, workflow.ErrWorkflowGetErr)
+		return
+	}
+
+	respondSuccessContent(ctx, "get workflow successful", gin.H{
+		"workflow": foundWorkflow,
+	})
+}
+
+func (r *WorkflowHandler) GetWorkflows(ctx *gin.Context) {
+	var workflowsRequest model.GetWorkflowsRequest
+
+	offset := ctx.Query("offset")
+	if offset != "" {
+		parsedOffset, err := strconv.Atoi(offset)
+		if err != nil || parsedOffset < 0 {
+			log := fmt.Sprintf("invalid offset: %q", offset)
+			respondBadRequest(ctx, log, "invalid offset")
+			return
+		}
+
+		workflowsRequest.Offset = parsedOffset
+	}
+
+	workflows, total, err := r.repo.GetWorkflows(ctx, workflowsRequest)
+	if err != nil {
+		log := fmt.Sprintf("failed to get workflows at offset %d: %v", workflowsRequest.Offset, err.Error())
+		respondErr(ctx, log, workflow.ErrWorkflowsGetErr)
+		return
+	}
+
+	respondSuccessContent(ctx, "successfully got workflows", gin.H{"workflows": workflows, "total": total})
+}
+
+func (r *WorkflowHandler) DeleteWorkflowById(ctx *gin.Context) {
+	workflowId, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		log := fmt.Sprintf("invalid workflow id: %v", err.Error())
+		respondBadRequest(ctx, log, "invalid workflow id")
+		return
+	}
+
+	err = r.repo.DeleteWorkflowById(ctx, workflowId)
+	if err != nil {
+		log := fmt.Sprintf("failed to delete workflow %v: %v", workflowId.String(), err.Error())
+		if errors.Is(err, repository.ErrWorkflowNotFound) {
+			respondErr(ctx, log, err)
+			return
+		}
+
+		respondErr(ctx, log, workflow.ErrWorkflowDeleteErr)
+		return
+	}
+
+	responseSuccessNoContent(ctx, fmt.Sprintf("successfully deleted workflow %v", workflowId.String()))
 }

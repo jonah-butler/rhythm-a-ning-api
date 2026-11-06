@@ -100,5 +100,26 @@ var DELETE_REMOVED_WORKFLOW_RHYTHMS string
 //go:embed workflow/upsert_workflow_rhythms.sql
 var UPSERT_WORKFLOW_RHYTHMS string
 
+//go:embed workflow/get_workflow_by_id.sql
+var GET_WORKFLOW_BY_ID string
+
+//go:embed workflow/get_workflow_rhythms.sql
+var GET_WORKFLOW_RHYTHMS string
+
+//go:embed workflow/get_workflow_sections.sql
+var GET_WORKFLOW_SECTIONS string
+
+//go:embed workflow/get_workflows.sql
+var GET_WORKFLOWS string
+
+//go:embed workflow/lock_workflow.sql
+var LOCK_WORKFLOW string
+
+//go:embed workflow/delete_workflow_block_rhythms.sql
+var DELETE_WORKFLOW_BLOCK_RHYTHMS string
+
+//go:embed workflow/delete_workflow.sql
+var DELETE_WORKFLOW string
+
 //go:embed workflow/delete_orphan_rhythms.sql
 var DELETE_ORPHAN_RHYTHMS string

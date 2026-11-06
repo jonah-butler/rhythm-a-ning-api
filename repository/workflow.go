@@ -272,6 +272,219 @@ func (r *WorkflowRepository) UpdateWorkflow(ctx *gin.Context, workflow model.Upd
 	return updated, nil
 }
 
+func (r *WorkflowRepository) GetWorkflowById(ctx *gin.Context, workflowId uuid.UUID) (model.Workflow, error) {
+	var workflow model.Workflow
+
+	userId, err := request.GetUserFromContext(ctx)
+	if err != nil {
+		return workflow, err
+	}
+
+	// one read-only transaction so the workflow, rhythms and sections come
+	// from the same snapshot even if an update commits in between
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		return workflow, err
+	}
+
+	defer tx.Rollback()
+
+	err = tx.QueryRowContext(
+		ctx,
+		GET_WORKFLOW_BY_ID,
+		workflowId,
+		userId,
+	).Scan(
+		&workflow.WorkflowId,
+		&workflow.UserId,
+		&workflow.Name,
+		&workflow.Description,
+		&workflow.CreatedAt,
+		&workflow.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return workflow, ErrWorkflowNotFound
+	}
+	if err != nil {
+		return workflow, err
+	}
+
+	workflow.Rhythms, err = getWorkflowRhythms(ctx, tx, workflowId)
+	if err != nil {
+		return workflow, err
+	}
+
+	workflow.Sections, err = getWorkflowSections(ctx, tx, workflowId)
+	if err != nil {
+		return workflow, err
+	}
+
+	return workflow, tx.Commit()
+}
+
+func (r *WorkflowRepository) GetWorkflows(ctx *gin.Context, workflowsRequest model.GetWorkflowsRequest) ([]model.WorkflowListItem, int, error) {
+	workflows := make([]model.WorkflowListItem, 0)
+
+	userId, err := request.GetUserFromContext(ctx)
+	if err != nil {
+		return workflows, 0, err
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		GET_WORKFLOWS,
+		userId,
+		workflowsRequest.Offset,
+	)
+	if err != nil {
+		return workflows, 0, err
+	}
+
+	defer rows.Close()
+
+	var total int
+	for rows.Next() {
+		var workflow model.WorkflowListItem
+
+		err = rows.Scan(
+			&workflow.WorkflowId,
+			&workflow.UserId,
+			&workflow.Name,
+			&workflow.Description,
+			&workflow.CreatedAt,
+			&workflow.UpdatedAt,
+			&workflow.BlockCount,
+			&workflow.TotalMeasures,
+			&workflow.AverageTempo,
+			&workflow.TotalMinutes,
+			&total,
+		)
+		if err != nil {
+			return workflows, total, err
+		}
+
+		workflows = append(workflows, workflow)
+	}
+
+	return workflows, total, rows.Err()
+}
+
+func (r *WorkflowRepository) DeleteWorkflowById(ctx *gin.Context, workflowId uuid.UUID) error {
+	userId, err := request.GetUserFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	// _1 Check ownership and lock the workflow so an update can't add rhythms mid-delete
+	var lockedId uuid.UUID
+	err = tx.QueryRowContext(ctx, LOCK_WORKFLOW, workflowId, userId).Scan(&lockedId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrWorkflowNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	// _2 Delete the workflow's rhythms; their workflow_rhythms rows cascade
+	_, err = tx.ExecContext(ctx, DELETE_WORKFLOW_BLOCK_RHYTHMS, workflowId, userId)
+	if err != nil {
+		return err
+	}
+
+	// _3 Delete the workflow; its sections cascade
+	_, err = tx.ExecContext(ctx, DELETE_WORKFLOW, workflowId)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// getWorkflowRhythms returns a workflow's rhythms with their link data, in position order
+func getWorkflowRhythms(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID) ([]model.WorkflowRhythm, error) {
+	rows, err := tx.QueryContext(ctx, GET_WORKFLOW_RHYTHMS, workflowId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	rhythms := make([]model.WorkflowRhythm, 0)
+	for rows.Next() {
+		var rhythm model.WorkflowRhythm
+		err := rows.Scan(
+			&rhythm.Id,
+			&rhythm.Bpm,
+			&rhythm.Beats,
+			&rhythm.Subdivision,
+			pq.Array(&rhythm.State),
+			&rhythm.IsPoly,
+			&rhythm.PolyBeats,
+			&rhythm.PolySubdivision,
+			pq.Array(&rhythm.PolyState),
+			&rhythm.UserId,
+			&rhythm.Level,
+			&rhythm.Name,
+			&rhythm.Description,
+			&rhythm.Sounds,
+			&rhythm.PolySounds,
+			&rhythm.CreatedAt,
+			&rhythm.UpdatedAt,
+			&rhythm.Subdivisions,
+			&rhythm.PolySubdivisions,
+			&rhythm.Section,
+			&rhythm.Measures,
+			&rhythm.Position,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if rhythm.IsPoly {
+			rhythm.RhythmType = model.Polyrhythm
+		}
+
+		rhythms = append(rhythms, rhythm)
+	}
+
+	return rhythms, rows.Err()
+}
+
+func getWorkflowSections(ctx context.Context, tx *sql.Tx, workflowId uuid.UUID) ([]model.WorkflowSection, error) {
+	rows, err := tx.QueryContext(ctx, GET_WORKFLOW_SECTIONS, workflowId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	sections := make([]model.WorkflowSection, 0)
+	for rows.Next() {
+		var section model.WorkflowSection
+		err := rows.Scan(
+			&section.SectionId,
+			&section.WorkflowId,
+			&section.Color,
+			&section.Name,
+			&section.Description,
+			&section.CreatedAt,
+			&section.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		sections = append(sections, section)
+	}
+
+	return sections, rows.Err()
+}
+
 // toWorkflowRhythms pairs each saved rhythm with its block's section and position
 func toWorkflowRhythms(blocks []model.CreateWorkflowRhythmInput, rhythms []model.Rhythm) []model.WorkflowRhythm {
 	workflowRhythms := make([]model.WorkflowRhythm, len(rhythms))

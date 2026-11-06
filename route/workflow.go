@@ -10,7 +10,10 @@ import (
 func SetupWorkflowRoutes(router *gin.RouterGroup, handler *handler.WorkflowHandler) {
 	workflows := router.Group("workflow")
 	{
-		workflows.POST("/", m.AuthorizeUser(), handler.CreateWorkflow)
-		workflows.PUT("/:id", m.AuthorizeUser(), handler.UpdateWorkflow)
+		workflows.GET("/", m.AuthorizeUser(), handler.GetWorkflows)             // get workflows, paged by ?offset=
+		workflows.POST("/", m.AuthorizeUser(), handler.CreateWorkflow)          // create new workflow
+		workflows.GET("/:id", m.AuthorizeUser(), handler.GetWorkflowById)       // get workflow by id
+		workflows.PUT("/:id", m.AuthorizeUser(), handler.UpdateWorkflow)        // update workflow by id
+		workflows.DELETE("/:id", m.AuthorizeUser(), handler.DeleteWorkflowById) // delete workflow by id
 	}
 }

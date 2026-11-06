@@ -41,14 +41,36 @@ type WorkflowSection struct {
 	TimeStampContract
 }
 
-type Workflow struct {
-	WorkflowId  uuid.UUID         `json:"workflowId"`
-	UserId      uuid.UUID         `json:"userId"`
-	Name        string            `json:"name"`
-	Description *string           `json:"description"`
-	Rhythms     []WorkflowRhythm  `json:"rhythms"`
-	Sections    []WorkflowSection `json:"sections"`
+// WorkflowSummary is a workflow without its rhythms or sections
+type WorkflowSummary struct {
+	WorkflowId  uuid.UUID `json:"workflowId"`
+	UserId      uuid.UUID `json:"userId"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
 	TimeStampContract
+}
+
+type Workflow struct {
+	WorkflowSummary
+	Rhythms  []WorkflowRhythm  `json:"rhythms"`
+	Sections []WorkflowSection `json:"sections"`
+}
+
+// WorkflowStats are totals across a workflow's blocks, used for list previews
+type WorkflowStats struct {
+	BlockCount    int     `json:"blockCount"`
+	TotalMeasures int     `json:"totalMeasures"`
+	AverageTempo  int     `json:"averageTempo"`
+	TotalMinutes  float64 `json:"totalMinutes"`
+}
+
+type WorkflowListItem struct {
+	WorkflowSummary
+	WorkflowStats
+}
+
+type GetWorkflowsRequest struct {
+	Offset int `json:"offset"`
 }
 
 // Update Payloads
